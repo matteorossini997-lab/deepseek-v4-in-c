@@ -8,6 +8,7 @@ on:
       - 'tests/python/**'
       - 'tests/fixtures/dsv4-mini/**'
       - 'requirements-dsv4-mini.txt'
+      - 'Makefile'
       - '.github/workflows/dsv4-mini.yml'
   pull_request:
     paths:
@@ -15,6 +16,7 @@ on:
       - 'tests/python/**'
       - 'tests/fixtures/dsv4-mini/**'
       - 'requirements-dsv4-mini.txt'
+      - 'Makefile'
       - '.github/workflows/dsv4-mini.yml'
   workflow_dispatch:
 
@@ -44,8 +46,8 @@ jobs:
           python -m pip install 'pytest>=8,<10'
       - name: Syntax check
         run: python -m compileall -q tools/dsv4_mini tests/python
-      - name: Unit and parity gates
-        run: python tools/dsv4_mini/run_tests.py
+      - name: Unit and parity gates through Make
+        run: make test-dsv4-mini PYTHON=python
       - name: Generate clean 130-token oracle
         run: |
           python -m tools.dsv4_mini.make_oracle \
