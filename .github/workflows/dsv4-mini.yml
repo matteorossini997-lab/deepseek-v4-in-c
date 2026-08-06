@@ -46,13 +46,15 @@ jobs:
           python -m pip install 'pytest>=8,<10'
       - name: Syntax check
         run: python -m compileall -q tools/dsv4_mini tests/python
-      - name: Unit and parity gates through Make
+      - name: Verify Make target uses isolated runner
+        run: make -n test-dsv4-mini PYTHON=python | grep -F 'python tools/dsv4_mini/run_tests.py'
+      - name: Unit and parity gates
         shell: bash
         env:
           PYTHONUNBUFFERED: '1'
         run: |
           set +e
-          make test-dsv4-mini PYTHON="$(command -v python)" 2>&1 | tee "$RUNNER_TEMP/dsv4-mini-tests.log"
+          python tools/dsv4_mini/run_tests.py 2>&1 | tee "$RUNNER_TEMP/dsv4-mini-tests.log"
           rc=${PIPESTATUS[0]}
           if (( rc != 0 )); then
             detail=$(tail -n 80 "$RUNNER_TEMP/dsv4-mini-tests.log" | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')
