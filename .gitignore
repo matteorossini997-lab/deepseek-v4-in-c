@@ -59,3 +59,7 @@ venv/
 # confusing one to debug.
 !tests/fixtures/
 !tests/fixtures/**
+
+# Local DeepSeek V4 mini-oracle scratch outputs. The canonical oracle.json remains tracked.
+/tests/fixtures/dsv4-mini/generated/
+/results/dsv4-mini-*.json
