@@ -49,7 +49,7 @@ CLI_SRC    := src/cli/k3_run.c
 CLI_BIN    := $(BIN)/k3
 
 # Tests that need no checkpoint. These run in CI on every push.
-UNIT_TESTS := test_ops test_cache test_st test_cfg test_tok test_dsv4_config test_dsv4_inventory scale_test k3_model
+UNIT_TESTS := test_ops test_cache test_st test_cfg test_tok test_dsv4_config test_dsv4_inventory test_dsv4_cpu_ops scale_test k3_model
 # Tests that need real shards. Built and run by `make test-all` with SHARD_DIR set;
 # see the weights-test target below.
 WEIGHT_TESTS := test_expert test_real_layer
@@ -66,7 +66,8 @@ TOK_FILES  ?= $(HOME)/k3model
 # ---------------------------------------------------------------------------- targets --
 .PHONY: all test test-all bench portable debug asan ubsan format clean install help \
         tok cfg ops cache st oracle weights-test test-dsv4-config dsv4-inspect \
-        test-dsv4-mini dsv4-mini-oracle test-dsv4-inventory dsv4-inventory
+        test-dsv4-mini dsv4-mini-oracle test-dsv4-inventory dsv4-inventory \
+        test-dsv4-cpu-ops
 
 all: $(CLI_BIN)
 
@@ -105,6 +106,9 @@ $(BIN)/test_dsv4_inventory: tests/unit/test_dsv4_inventory.c src/io/dsv4_invento
 
 $(BIN)/dsv4-inventory: src/cli/dsv4_inventory_cli.c src/io/dsv4_inventory.c src/model/dsv4_config.c include/dsv4/dsv4_inventory.h include/dsv4/dsv4_config.h third_party/json.h | $(BIN)
 	$(CC) -O2 -std=c99 $(WARN) -Werror -Iinclude/dsv4 -Ithird_party src/cli/dsv4_inventory_cli.c src/io/dsv4_inventory.c src/model/dsv4_config.c -o $@ -lm
+
+$(BIN)/test_dsv4_cpu_ops: tests/unit/test_dsv4_cpu_ops.c src/cpu/dsv4_cpu_ops.c include/dsv4/dsv4_cpu_ops.h tests/fixtures/dsv4_cpu_ops_vectors.h | $(BIN)
+	$(CC) -O2 -std=c99 $(WARN) -Werror -ffp-contract=off -Iinclude/dsv4 -Itests/fixtures tests/unit/test_dsv4_cpu_ops.c src/cpu/dsv4_cpu_ops.c -o $@ -lm
 
 # The tokenizer and config reader are portable C99 with no OpenMP and no platform calls,
 # so they build and are verifiable on any machine, including one with no checkpoint.
@@ -150,6 +154,9 @@ test-dsv4-inventory: $(BIN)/test_dsv4_inventory $(BIN)/dsv4-inventory
 		--verifier tools/verify_dsv4_inventory.py \
 		--workdir $(BUILD)/dsv4-inventory-gate
 
+test-dsv4-cpu-ops: $(BIN)/test_dsv4_cpu_ops
+	$(BIN)/test_dsv4_cpu_ops
+
 ## test: everything that needs no model weights
 test: $(TEST_BINS) $(BIN)/dsv4-inspect $(BIN)/dsv4-inventory
 	@echo "== op kernels ==";        ./$(BIN)/test_ops $(FIXTURES)/ops
@@ -159,6 +166,7 @@ test: $(TEST_BINS) $(BIN)/dsv4-inspect $(BIN)/dsv4-inventory
 	@echo "== config reader ==";     ./$(BIN)/test_cfg fixture $(FIXTURES)/ref_k3.json
 	@echo "== DeepSeek config ==";    $(MAKE) --no-print-directory test-dsv4-config
 	@echo "== DeepSeek inventory =="; $(MAKE) --no-print-directory test-dsv4-inventory
+	@echo "== DeepSeek CPU ops ==";   $(MAKE) --no-print-directory test-dsv4-cpu-ops
 	@echo "== tokenizer ==";         ./$(BIN)/test_tok $(TOK_FILES) roundtrip src/core/k3_ops.c \
 	    || echo "  (skipped: no tokenizer files at $(TOK_FILES))"
 	@echo "== real dimensions ==";   ./$(BIN)/scale_test

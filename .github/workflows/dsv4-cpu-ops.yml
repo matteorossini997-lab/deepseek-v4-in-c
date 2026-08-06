@@ -1,0 +1,78 @@
+name: DeepSeek CPU routing and mHC
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'include/dsv4/dsv4_cpu_ops.h'
+      - 'src/cpu/dsv4_cpu_ops.c'
+      - 'tests/unit/test_dsv4_cpu_ops.c'
+      - 'tests/fixtures/dsv4_cpu_ops_vectors.h'
+      - 'Makefile'
+      - 'CMakeLists.txt'
+      - '.github/workflows/dsv4-cpu-ops.yml'
+  pull_request:
+    paths:
+      - 'include/dsv4/dsv4_cpu_ops.h'
+      - 'src/cpu/dsv4_cpu_ops.c'
+      - 'tests/unit/test_dsv4_cpu_ops.c'
+      - 'tests/fixtures/dsv4_cpu_ops_vectors.h'
+      - 'Makefile'
+      - 'CMakeLists.txt'
+      - '.github/workflows/dsv4-cpu-ops.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  portable-cpu-ops:
+    name: ${{ matrix.compiler }} FP32 reference
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Select compiler
+        run: |
+          if [[ '${{ matrix.compiler }}' == clang ]]; then
+            echo 'CC=clang' >> "$GITHUB_ENV"
+          else
+            echo 'CC=gcc' >> "$GITHUB_ENV"
+          fi
+      - name: Focused Make gate
+        run: make test-dsv4-cpu-ops CC="$CC"
+      - name: GCC analyzer
+        if: matrix.compiler == 'gcc'
+        run: |
+          gcc -O0 -g -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror \
+              -fanalyzer -ffp-contract=off -Iinclude/dsv4 \
+              -c src/cpu/dsv4_cpu_ops.c \
+              -o "$RUNNER_TEMP/dsv4_cpu_ops_analyzer.o"
+      - name: ASan and UBSan
+        run: |
+          "$CC" -O1 -g -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror \
+            -ffp-contract=off -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -Iinclude/dsv4 -Itests/fixtures \
+            tests/unit/test_dsv4_cpu_ops.c src/cpu/dsv4_cpu_ops.c \
+            -lm -fsanitize=address,undefined \
+            -o "$RUNNER_TEMP/test_dsv4_cpu_ops_asan"
+          ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 \
+          UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+            "$RUNNER_TEMP/test_dsv4_cpu_ops_asan"
+      - name: CMake and CTest
+        run: |
+          cmake -S . -B "$RUNNER_TEMP/build" \
+            -DK3_NATIVE_ARCH=OFF -DCMAKE_C_COMPILER="$CC"
+          cmake --build "$RUNNER_TEMP/build" \
+            --target test_dsv4_cpu_ops -j"$(nproc)"
+          ctest --test-dir "$RUNNER_TEMP/build" \
+            -R '^dsv4_cpu_ops$' --output-on-failure
+      - name: Tree hygiene
+        run: git diff --check

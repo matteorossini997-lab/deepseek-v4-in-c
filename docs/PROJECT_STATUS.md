@@ -119,6 +119,15 @@ The implementation is verified on synthetic two-shard fixtures only. The
 reviewed 46-shard checkpoint is not present in this environment, so real
 checkpoint totals and tensor coverage remain an explicit hardware/data gate.
 
+### P1-A implementation status — native CPU routing and mHC
+
+The `p1a/cpu-routing-hc` stacked branch adds portable FP32 C99 operators for
+`sqrtsoftplus`, the canonical hash route, learned correction-bias top-6 routing,
+unweighted RMS normalization and the exact mini-oracle mHC/Sinkhorn order.
+Canonical vectors are generated from the merged PyTorch classes with explicit
+weights and inputs. Attention, experts, MTP and a complete C decoder remain out
+of scope for this increment.
+
 ## Non-negotiable source-review rule
 
 Before developing from or integrating any external or sibling repository:
