@@ -107,6 +107,18 @@ P0-B2 must not execute checkpoint weights. The mini-oracle supplies canonical
 model terminology and later parity gates, but it must not be used to invent
 production tensor names or sizes.
 
+### P0-B2 implementation status
+
+The `p0b2/safetensors-inventory` branch implements the inspection-only
+inventory described above: strict index/header parsing, dtype and byte-span
+validation, deterministic tensor classes and totals, exact Flash FP8/FP4
+storage-geometry checks, O(1) lookup, JSON/TSV reporting, synthetic fixtures
+and an independent Python descriptor comparison.
+
+The implementation is verified on synthetic two-shard fixtures only. The
+reviewed 46-shard checkpoint is not present in this environment, so real
+checkpoint totals and tensor coverage remain an explicit hardware/data gate.
+
 ## Non-negotiable source-review rule
 
 Before developing from or integrating any external or sibling repository:

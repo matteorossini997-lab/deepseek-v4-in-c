@@ -15,7 +15,7 @@ brought into `deepseek-v4-in-c` from another repository.
 
 ## P0-B1: DeepSeek configuration contract
 
-**Review date:** 2026-08-06  
+**Review date:** 2026-08-06
 **Target:** `DSV4Config`, `dsv4_config_load_file`,
 `dsv4_config_is_flash_profile`, and the configuration-only `dsv4-inspect` CLI.
 
@@ -47,7 +47,7 @@ TDD and verification evidence:
 
 ## FP32 mini-isomorphic oracle
 
-**Review/merge date:** 2026-08-06  
+**Review/merge date:** 2026-08-06
 **Target:** `tools/dsv4_mini`, `tests/python`, canonical
 `tests/fixtures/dsv4-mini/oracle.json`, Make targets and CPU workflow.
 
@@ -68,6 +68,38 @@ parity, route parity, boundary checks at sliding/CSA/HCA emission positions and
 canonical oracle generation. The CPU workflow is authoritative for this
 milestone; RTX 2060 Super and BC-250 runs remain unverified.
 
+## P0-B2: Safetensors inventory and Flash storage profile
+
+**Review date:** 2026-08-06
+**Target:** `DSV4Inventory`, `dsv4-inventory`, synthetic inventory fixture,
+independent descriptor verifier, Make/CMake/CTest and dedicated CI.
+
+| Source | Exact ref and files reviewed | Decision |
+|---|---|---|
+| target repository | `main@94188f6a2abd901459ce35360b46d9fbc2d130bc`: K3 Safetensors reader/header, unit test, independent verifier, config contract and FP32 mini-oracle | KEEP K3 production I/O unchanged; add a separate DeepSeek inspection module and reuse fail-closed methodology. |
+| `deepseek-ai/DeepSeek-V4-Flash` | repository `60d8d70770c6776ff598c94bb586a859a38244f1`; `config.json@fd53f94`, `inference/model.py@2b2bebc`, `inference/kernel.py@553034d`, `inference/convert.py@2b88d47`; checkpoint/index `7d0cce91a2ba9b7738b3b33163a53eccb1cbe47c` | REWRITE metadata and storage-geometry validation in portable C99. No official source or weights copied. |
+| Safetensors format | current format and dtype definitions reviewed 2026-08-06 | IMPLEMENT strict no-hole/no-overlap/full-buffer rules and modern bit-width table including F4/F6/FP8/E8M0. |
+
+Local differences and invariants:
+
+- the Hugging Face index and referenced shard headers are authoritative;
+- shard count is derived rather than hardcoded to the reviewed 46-shard artifact;
+- index/header equality, safe basenames, descriptor completeness, dtype bit
+  widths, byte alignment, contiguous spans, totals and integer overflow are
+  fail-closed;
+- exact Flash validation covers top-6 routing-index geometry, dense FP8
+  128x128 scales and native or packed-I8 FP4 32-value K blocks;
+- the mini-oracle supplies terminology only, never production tensor names or
+  sizes;
+- synthetic fixtures contain zero-filled payload bytes and are generated at
+  test time; no checkpoint shard is committed;
+- real-checkpoint execution and the 46-shard totals are not verified in this
+  environment.
+
+Verification: focused `-Werror`, GCC/Clang, ASan+UBSan, GCC `-fanalyzer`,
+deterministic JSON/TSV, Make, CMake/CTest and an independent Python parse of
+every synthetic descriptor.
+
 ## Existing baseline provenance
 
 The target was forked from K3-in-C. Its Apache-2.0 `NOTICE` documents vendored
@@ -78,7 +110,7 @@ authoritative until files are removed or replaced.
 
 | Target area | Primary source to review first | Expected action | Import status |
 |---|---|---|---|
-| Safetensors scanner and aligned reads | K3 `src/io/k3_st.c`, `tests/unit/test_st.c`, `tools/verify_st.py` | KEEP/EXTEND | P0-B2 active |
+| Safetensors scanner and aligned reads | K3 `src/io/k3_st.c`, `tests/unit/test_st.c`, `tools/verify_st.py` | KEEP/EXTEND | P0-B2 implementation in review; K3 production reader unchanged |
 | Config reader and binder discipline | K3 config/binder plus official DeepSeek config/model | REWRITE pattern | Configuration normalizer complete; tensor binder not started |
 | Expert loader and trunk packing | K3 `src/io/k3_load.c`, `src/io/k3_trunk.c`, pack tools | ADAPT | Not started |
 | Tiny oracle methodology | Local mini-oracle plus official DeepSeek graph | KEEP/EXTEND | FP32 mini-oracle complete; native C/Vulkan parity not started |

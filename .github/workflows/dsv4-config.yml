@@ -21,4 +21,5 @@ jobs:
         run: |
           cmake -S . -B /tmp/dsv4-build -DCMAKE_BUILD_TYPE=Release
           cmake --build /tmp/dsv4-build --target test_dsv4_config dsv4-inspect -j2
-          ctest --test-dir /tmp/dsv4-build -R 'dsv4_' --output-on-failure
+          ctest --test-dir /tmp/dsv4-build \
+            -R '^(dsv4_config_|dsv4_inspect_)' --output-on-failure

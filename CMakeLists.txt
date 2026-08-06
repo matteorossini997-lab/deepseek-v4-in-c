@@ -109,6 +109,17 @@ target_link_libraries(test_dsv4_config PRIVATE dsv4_config)
 add_executable(dsv4-inspect src/cli/dsv4_inspect.c)
 target_link_libraries(dsv4-inspect PRIVATE dsv4_config)
 
+
+add_library(dsv4_inventory STATIC src/io/dsv4_inventory.c)
+target_include_directories(dsv4_inventory PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include/dsv4)
+target_link_libraries(dsv4_inventory PUBLIC m PRIVATE k3_flags)
+
+add_executable(test_dsv4_inventory tests/unit/test_dsv4_inventory.c)
+target_link_libraries(test_dsv4_inventory PRIVATE dsv4_inventory)
+
+add_executable(dsv4-inventory src/cli/dsv4_inventory_cli.c)
+target_link_libraries(dsv4-inventory PRIVATE dsv4_inventory dsv4_config)
+
 k3_add_test(test_tok    tests/unit/test_tok.c)
 k3_add_test(scale_test  tests/unit/scale_test.c)
 k3_add_test(k3_model    tests/unit/k3_model.c)
@@ -134,6 +145,20 @@ add_test(NAME dsv4_inspect_hf COMMAND dsv4-inspect --json ${DSV4_FIX}/config_hf.
 set_tests_properties(dsv4_inspect_hf PROPERTIES PASS_REGULAR_EXPRESSION "\"layout\":\"hf\"")
 add_test(NAME dsv4_inspect_inference COMMAND dsv4-inspect --json ${DSV4_FIX}/config_inference.json)
 set_tests_properties(dsv4_inspect_inference PROPERTIES PASS_REGULAR_EXPRESSION "\"layout\":\"inference\"")
+
+
+
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+add_test(NAME dsv4_inventory_unit COMMAND test_dsv4_inventory)
+add_test(
+  NAME dsv4_inventory_gate
+  COMMAND ${Python3_EXECUTABLE}
+${CMAKE_CURRENT_SOURCE_DIR}/tools/run_dsv4_inventory_gate.py
+--generator ${CMAKE_CURRENT_SOURCE_DIR}/tools/make_dsv4_inventory_fixture.py
+--cli $<TARGET_FILE:dsv4-inventory>
+--config ${DSV4_FIX}/config_hf.json
+--verifier ${CMAKE_CURRENT_SOURCE_DIR}/tools/verify_dsv4_inventory.py
+--workdir ${CMAKE_CURRENT_BINARY_DIR}/dsv4-inventory-gate)
 
 add_test(NAME scale      COMMAND scale_test)
 add_test(NAME oracle     COMMAND k3_model   ${FIX})

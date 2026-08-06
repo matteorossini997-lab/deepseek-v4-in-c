@@ -1,0 +1,83 @@
+name: DeepSeek Safetensors inventory
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'include/dsv4/dsv4_inventory.h'
+      - 'src/io/dsv4_inventory.c'
+      - 'src/cli/dsv4_inventory_cli.c'
+      - 'tests/unit/test_dsv4_inventory.c'
+      - 'tools/make_dsv4_inventory_fixture.py'
+      - 'tools/verify_dsv4_inventory.py'
+      - 'tools/run_dsv4_inventory_gate.py'
+      - 'tests/fixtures/dsv4/**'
+      - 'Makefile'
+      - 'CMakeLists.txt'
+      - '.github/workflows/dsv4-inventory.yml'
+  pull_request:
+    paths:
+      - 'include/dsv4/dsv4_inventory.h'
+      - 'src/io/dsv4_inventory.c'
+      - 'src/cli/dsv4_inventory_cli.c'
+      - 'tests/unit/test_dsv4_inventory.c'
+      - 'tools/make_dsv4_inventory_fixture.py'
+      - 'tools/verify_dsv4_inventory.py'
+      - 'tools/run_dsv4_inventory_gate.py'
+      - 'tests/fixtures/dsv4/**'
+      - 'Makefile'
+      - 'CMakeLists.txt'
+      - '.github/workflows/dsv4-inventory.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  inventory-contract:
+    name: Metadata, geometry and safety gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Focused Make gate
+        run: make test-dsv4-inventory PYTHON=python3
+
+      - name: GCC analyzer
+        run: |
+          cc -O0 -g -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror -fanalyzer \
+             -Iinclude/dsv4 -c src/io/dsv4_inventory.c -o "$RUNNER_TEMP/inventory-analyzer.o"
+          cc -O0 -g -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror -fanalyzer \
+             -Iinclude/dsv4 -Ithird_party -c src/cli/dsv4_inventory_cli.c \
+             -o "$RUNNER_TEMP/inventory-cli-analyzer.o"
+
+      - name: ASan and UBSan
+        run: |
+          cc -O1 -g -std=c99 -Wall -Wextra -Werror \
+             -fsanitize=address,undefined -fno-omit-frame-pointer \
+             -Iinclude/dsv4 tests/unit/test_dsv4_inventory.c src/io/dsv4_inventory.c \
+             -o "$RUNNER_TEMP/test-dsv4-inventory-asan" -lm \
+             -fsanitize=address,undefined
+          ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 \
+          UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+             "$RUNNER_TEMP/test-dsv4-inventory-asan"
+
+      - name: CMake and CTest gate
+        run: |
+          cmake -S . -B "$RUNNER_TEMP/build" -DK3_NATIVE_ARCH=OFF
+          cmake --build "$RUNNER_TEMP/build" \
+            --target test_dsv4_inventory dsv4-inventory -j"$(nproc)"
+          ctest --test-dir "$RUNNER_TEMP/build" \
+            -R '^dsv4_inventory_' --output-on-failure
+
+      - name: Generated-fixture and tree hygiene
+        run: |
+          python3 -m compileall -q tools/make_dsv4_inventory_fixture.py \
+            tools/verify_dsv4_inventory.py tools/run_dsv4_inventory_gate.py
+          test ! -e tests/fixtures/dsv4-inventory
+          git diff --check
