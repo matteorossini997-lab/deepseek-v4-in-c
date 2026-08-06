@@ -151,6 +151,14 @@ add_executable(test_dsv4_sparse_index tests/unit/test_dsv4_sparse_index.c)
 target_include_directories(test_dsv4_sparse_index PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures)
 target_link_libraries(test_dsv4_sparse_index PRIVATE dsv4_sparse_index)
 
+add_library(dsv4_attention_step STATIC src/cpu/dsv4_attention_step.c)
+target_include_directories(dsv4_attention_step PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include/dsv4)
+target_link_libraries(dsv4_attention_step PUBLIC m dsv4_attention_numeric dsv4_attention_state dsv4_sparse_index PRIVATE k3_flags)
+
+add_executable(test_dsv4_attention_step tests/unit/test_dsv4_attention_step.c)
+target_include_directories(test_dsv4_attention_step PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures)
+target_link_libraries(test_dsv4_attention_step PRIVATE dsv4_attention_step)
+
 k3_add_test(test_tok    tests/unit/test_tok.c)
 k3_add_test(scale_test  tests/unit/scale_test.c)
 k3_add_test(k3_model    tests/unit/k3_model.c)
@@ -195,6 +203,7 @@ add_test(NAME dsv4_cpu_ops COMMAND test_dsv4_cpu_ops)
 add_test(NAME dsv4_attention_state COMMAND test_dsv4_attention_state)
 add_test(NAME dsv4_attention_numeric COMMAND test_dsv4_attention_numeric)
 add_test(NAME dsv4_sparse_index COMMAND test_dsv4_sparse_index)
+add_test(NAME dsv4_attention_step COMMAND test_dsv4_attention_step)
 
 add_test(NAME scale      COMMAND scale_test)
 add_test(NAME oracle     COMMAND k3_model   ${FIX})

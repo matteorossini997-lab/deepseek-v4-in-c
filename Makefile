@@ -49,7 +49,7 @@ CLI_SRC    := src/cli/k3_run.c
 CLI_BIN    := $(BIN)/k3
 
 # Tests that need no checkpoint. These run in CI on every push.
-UNIT_TESTS := test_ops test_cache test_st test_cfg test_tok test_dsv4_config test_dsv4_inventory test_dsv4_cpu_ops test_dsv4_attention_state test_dsv4_attention_numeric test_dsv4_sparse_index scale_test k3_model
+UNIT_TESTS := test_ops test_cache test_st test_cfg test_tok test_dsv4_config test_dsv4_inventory test_dsv4_cpu_ops test_dsv4_attention_state test_dsv4_attention_numeric test_dsv4_sparse_index test_dsv4_attention_step scale_test k3_model
 # Tests that need real shards. Built and run by `make test-all` with SHARD_DIR set;
 # see the weights-test target below.
 WEIGHT_TESTS := test_expert test_real_layer
@@ -68,7 +68,8 @@ TOK_FILES  ?= $(HOME)/k3model
         tok cfg ops cache st oracle weights-test test-dsv4-config dsv4-inspect \
         test-dsv4-mini dsv4-mini-oracle test-dsv4-inventory dsv4-inventory \
         test-dsv4-cpu-ops test-dsv4-attention-state \
-        test-dsv4-attention-numeric test-dsv4-sparse-index
+        test-dsv4-attention-numeric test-dsv4-sparse-index \
+        test-dsv4-attention-step
 
 all: $(CLI_BIN)
 
@@ -119,6 +120,9 @@ $(BIN)/test_dsv4_attention_numeric: tests/unit/test_dsv4_attention_numeric.c src
 
 $(BIN)/test_dsv4_sparse_index: tests/unit/test_dsv4_sparse_index.c src/cpu/dsv4_sparse_index.c include/dsv4/dsv4_sparse_index.h tests/fixtures/dsv4_sparse_index_vectors.h | $(BIN)
 	$(CC) -O2 -std=c99 $(WARN) -Werror -ffp-contract=off -Iinclude/dsv4 -Itests/fixtures tests/unit/test_dsv4_sparse_index.c src/cpu/dsv4_sparse_index.c -o $@ -lm
+
+$(BIN)/test_dsv4_attention_step: tests/unit/test_dsv4_attention_step.c src/cpu/dsv4_attention_step.c src/cpu/dsv4_attention_numeric.c src/cpu/dsv4_attention_state.c src/cpu/dsv4_sparse_index.c include/dsv4/dsv4_attention_step.h include/dsv4/dsv4_attention_numeric.h include/dsv4/dsv4_attention_state.h include/dsv4/dsv4_sparse_index.h tests/fixtures/dsv4_attention_step_vectors.h | $(BIN)
+	$(CC) -O2 -std=c99 $(WARN) -Werror -ffp-contract=off -Iinclude/dsv4 -Itests/fixtures tests/unit/test_dsv4_attention_step.c src/cpu/dsv4_attention_step.c src/cpu/dsv4_attention_numeric.c src/cpu/dsv4_attention_state.c src/cpu/dsv4_sparse_index.c -o $@ -lm
 
 # The tokenizer and config reader are portable C99 with no OpenMP and no platform calls,
 # so they build and are verifiable on any machine, including one with no checkpoint.
@@ -176,6 +180,9 @@ test-dsv4-attention-numeric: $(BIN)/test_dsv4_attention_numeric
 test-dsv4-sparse-index: $(BIN)/test_dsv4_sparse_index
 	$(BIN)/test_dsv4_sparse_index
 
+test-dsv4-attention-step: $(BIN)/test_dsv4_attention_step
+	$(BIN)/test_dsv4_attention_step
+
 ## test: everything that needs no model weights
 test: $(TEST_BINS) $(BIN)/dsv4-inspect $(BIN)/dsv4-inventory
 	@echo "== op kernels ==";        ./$(BIN)/test_ops $(FIXTURES)/ops
@@ -189,6 +196,7 @@ test: $(TEST_BINS) $(BIN)/dsv4-inspect $(BIN)/dsv4-inventory
 	@echo "== DeepSeek attn state =="; $(MAKE) --no-print-directory test-dsv4-attention-state
 	@echo "== DeepSeek attn numeric =="; $(MAKE) --no-print-directory test-dsv4-attention-numeric
 	@echo "== DeepSeek sparse index =="; $(MAKE) --no-print-directory test-dsv4-sparse-index
+	@echo "== DeepSeek attention step =="; $(MAKE) --no-print-directory test-dsv4-attention-step
 	@echo "== tokenizer ==";         ./$(BIN)/test_tok $(TOK_FILES) roundtrip src/core/k3_ops.c \
 	    || echo "  (skipped: no tokenizer files at $(TOK_FILES))"
 	@echo "== real dimensions ==";   ./$(BIN)/scale_test
