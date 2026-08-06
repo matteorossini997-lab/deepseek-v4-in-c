@@ -142,6 +142,20 @@ This increment starts after learned projections. It validates numerical
 pooling and attention but does not claim complete layer, checkpoint or Vulkan
 parity. The C API supports negative RoPE positions for the canonical inverse.
 
+## P1-D: CSA sparse index scoring and top-k
+
+**Review date:** 2026-08-06
+
+| Source | Exact ref and files reviewed | Decision |
+|---|---|---|
+| target mini-oracle | `13952eff5dcf75ce75e692d5a03e714e47de2fd4`: `MiniIndexer.step` and attention boundary tests | REWRITE the post-projection score and sorted top-k in portable C99; generate deterministic vectors from the same Torch expression. |
+| official DeepSeek V4 Flash | `60d8d70770c6776ff598c94bb586a859a38244f1`: sparse index contract | Preserve ReLU-per-head, head/dimension scaling and top-k selection; no official source copied. |
+
+PyTorch sorted top-k does not specify an exact equal-score token order across
+backends. The C reference uses lower token index as the exact-tie break; the
+canonical fixture contains no ties and a separate adversarial test covers the
+portable rule.
+
 ## Existing baseline provenance
 
 The target was forked from K3-in-C. Its Apache-2.0 `NOTICE` documents vendored
