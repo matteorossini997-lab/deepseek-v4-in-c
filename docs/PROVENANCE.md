@@ -100,6 +100,21 @@ Verification: focused `-Werror`, GCC/Clang, ASan+UBSan, GCC `-fanalyzer`,
 deterministic JSON/TSV, Make, CMake/CTest and an independent Python parse of
 every synthetic descriptor.
 
+## P1-A: native CPU routing and Hyper-Connections
+
+**Review date:** 2026-08-06
+
+| Source | Exact ref and files reviewed | Decision |
+|---|---|---|
+| target mini-oracle | `13952eff5dcf75ce75e692d5a03e714e47de2fd4`: `reference.py`, routing and Hyper-Connection tests, deterministic initialization | REWRITE the scalar operators in portable C99; generate exact FP32 vectors by invoking the canonical PyTorch classes. |
+| official DeepSeek V4 Flash | `60d8d70770c6776ff598c94bb586a859a38244f1`: routing and Hyper-Connection model contract | Preserve correction-bias selection, unbiased route weights and Sinkhorn order; no official source copied. |
+
+Local differences: PyTorch `topk(sorted=False)` has no portable slot order. The
+C API returns the same selected expert set canonicalized by corrected score
+descending and lower expert id for ties. Generated cases assert no ties and
+compare the selected set before canonicalization. This increment is FP32 CPU
+reference code only and does not claim production checkpoint or Vulkan parity.
+
 ## Existing baseline provenance
 
 The target was forked from K3-in-C. Its Apache-2.0 `NOTICE` documents vendored
