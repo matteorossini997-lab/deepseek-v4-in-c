@@ -47,7 +47,18 @@ jobs:
       - name: Syntax check
         run: python -m compileall -q tools/dsv4_mini tests/python
       - name: Unit and parity gates through Make
-        run: make test-dsv4-mini PYTHON=python
+        shell: bash
+        env:
+          PYTHONUNBUFFERED: '1'
+        run: |
+          set +e
+          make test-dsv4-mini PYTHON="$(command -v python)" 2>&1 | tee "$RUNNER_TEMP/dsv4-mini-tests.log"
+          rc=${PIPESTATUS[0]}
+          if (( rc != 0 )); then
+            detail=$(tail -n 80 "$RUNNER_TEMP/dsv4-mini-tests.log" | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')
+            echo "::error title=Mini-oracle tests failed::$detail"
+          fi
+          exit "$rc"
       - name: Generate clean 130-token oracle
         run: |
           python -m tools.dsv4_mini.make_oracle \
