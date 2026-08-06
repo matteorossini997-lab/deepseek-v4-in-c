@@ -6,6 +6,14 @@
 make -j && make test
 ```
 
+## Before porting or deriving code
+
+Review the owning repository before implementation. Follow
+[`docs/SOURCE_REVIEW_CHECKLIST.md`](docs/SOURCE_REVIEW_CHECKLIST.md) and record
+all adopted designs or code in [`docs/PROVENANCE.md`](docs/PROVENANCE.md).
+A branch name alone is not a source identity: record a full commit SHA, inspect
+its tests and license/NOTICE, and explain local semantic differences.
+
 `make test` needs no model weights and must stay green. If it is red on `main`, that is
 the bug worth fixing first.
 

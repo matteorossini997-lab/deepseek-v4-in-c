@@ -6,6 +6,17 @@
 
 <!-- The problem being solved. Link an issue if there is one. -->
 
+## Source review, when code or design is ported/derived
+
+- [ ] Owning repository and full source commit are listed below.
+- [ ] Relevant source files, tests, branches/PRs and recent commits were reviewed.
+- [ ] License and NOTICE obligations were checked and preserved.
+- [ ] `docs/PROVENANCE.md` was updated with the decision and local differences.
+
+<!-- Write "Not applicable" for original work. Otherwise list repository, SHA,
+     files reviewed, decision (KEEP/PORT/REWRITE/EXPERIMENT/REJECT/DEFER), and
+     semantic differences. -->
+
 ## Verification
 
 - [ ] `make test` passes (all weightless gates)
