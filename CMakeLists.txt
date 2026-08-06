@@ -96,6 +96,19 @@ k3_add_test(test_ops    tests/unit/test_ops.c)
 k3_add_test(test_cache  tests/unit/test_cache.c)
 k3_add_test(test_st     tests/unit/test_st.c)
 k3_add_test(test_cfg    tests/unit/test_cfg.c)
+
+add_library(dsv4_config STATIC src/model/dsv4_config.c)
+target_include_directories(dsv4_config
+  PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include/dsv4
+  PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
+target_link_libraries(dsv4_config PUBLIC m PRIVATE k3_flags)
+
+add_executable(test_dsv4_config tests/unit/test_dsv4_config.c)
+target_link_libraries(test_dsv4_config PRIVATE dsv4_config)
+
+add_executable(dsv4-inspect src/cli/dsv4_inspect.c)
+target_link_libraries(dsv4-inspect PRIVATE dsv4_config)
+
 k3_add_test(test_tok    tests/unit/test_tok.c)
 k3_add_test(scale_test  tests/unit/scale_test.c)
 k3_add_test(k3_model    tests/unit/k3_model.c)
@@ -108,6 +121,20 @@ set(FIX ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures)
 add_test(NAME ops        COMMAND test_ops   ${FIX}/ops)
 add_test(NAME cache      COMMAND test_cache ${FIX}/cache)
 add_test(NAME config     COMMAND test_cfg   fixture ${FIX}/ref_k3.json)
+
+set(DSV4_FIX ${FIX}/dsv4)
+add_test(NAME dsv4_config_hf COMMAND test_dsv4_config hf ${DSV4_FIX}/config_hf.json)
+add_test(NAME dsv4_config_inference COMMAND test_dsv4_config inference ${DSV4_FIX}/config_inference.json)
+add_test(NAME dsv4_config_missing COMMAND test_dsv4_config reject ${DSV4_FIX}/config_missing.json num_hidden_layers)
+add_test(NAME dsv4_config_conflict COMMAND test_dsv4_config reject ${DSV4_FIX}/config_conflict.json conflict)
+add_test(NAME dsv4_config_bad_ratios COMMAND test_dsv4_config reject ${DSV4_FIX}/config_bad_ratios.json compress_ratios)
+add_test(NAME dsv4_config_bad_topk COMMAND test_dsv4_config reject ${DSV4_FIX}/config_bad_topk.json n_activated_experts)
+add_test(NAME dsv4_config_bad_format COMMAND test_dsv4_config reject ${DSV4_FIX}/config_bad_format.json expert_dtype)
+add_test(NAME dsv4_inspect_hf COMMAND dsv4-inspect --json ${DSV4_FIX}/config_hf.json)
+set_tests_properties(dsv4_inspect_hf PROPERTIES PASS_REGULAR_EXPRESSION "\"layout\":\"hf\"")
+add_test(NAME dsv4_inspect_inference COMMAND dsv4-inspect --json ${DSV4_FIX}/config_inference.json)
+set_tests_properties(dsv4_inspect_inference PROPERTIES PASS_REGULAR_EXPRESSION "\"layout\":\"inference\"")
+
 add_test(NAME scale      COMMAND scale_test)
 add_test(NAME oracle     COMMAND k3_model   ${FIX})
 add_test(NAME safetensors COMMAND test_st   ${FIX}/st ${CMAKE_CURRENT_BINARY_DIR}/idx.json
