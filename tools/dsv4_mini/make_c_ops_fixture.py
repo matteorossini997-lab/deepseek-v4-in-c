@@ -38,7 +38,24 @@ def emit_array(name: str, values: torch.Tensor, ctype: str = "float", per_line: 
 
 def build_header() -> str:
     sqrt_input = torch.tensor([-20.0, -3.0, -1.0, 0.0, 1.0, 3.0, 20.0], dtype=torch.float32)
-    sqrt_expected = sqrtsoftplus(sqrt_input)
+    # Transcendental kernels can differ by one ULP across runner CPU capabilities.
+    # Emit one reviewed FP32 contract and verify that the live PyTorch oracle remains
+    # numerically equivalent instead of letting the vendored header depend on ISA/libm.
+    sqrt_expected = torch.tensor(
+        [
+            float.fromhex("0x1.7cd79c0000000p-15"),
+            float.fromhex("0x1.c36e640000000p-3"),
+            float.fromhex("0x1.1e90b80000000p-1"),
+            float.fromhex("0x1.aa44980000000p-1"),
+            float.fromhex("0x1.255eb40000000p+0"),
+            float.fromhex("0x1.befb320000000p+0"),
+            float.fromhex("0x1.1e377a0000000p+2"),
+        ],
+        dtype=torch.float32,
+    )
+    torch.testing.assert_close(
+        sqrtsoftplus(sqrt_input), sqrt_expected, rtol=0.0, atol=4.0e-8
+    )
 
     route_cfg = SimpleNamespace(
         hidden_size=4,

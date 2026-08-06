@@ -129,6 +129,19 @@ counts but owns no tensor buffers. Shared-KV expansion is a CPU reference
 primitive; a production Vulkan kernel may broadcast without materialization.
 No attention numerical parity is claimed yet.
 
+## P1-C: attention numerical primitives
+
+**Review date:** 2026-08-06
+
+| Source | Exact ref and files reviewed | Decision |
+|---|---|---|
+| target mini-oracle | `13952eff5dcf75ce75e692d5a03e714e47de2fd4`: `_rope_cos_sin`, `_apply_partial_rope`, `MiniCompressor`, `MiniAttention._attention_with_sink` | REWRITE portable FP32 C99 operators and generate deterministic hexadecimal fixtures by invoking the canonical classes. |
+| official DeepSeek V4 Flash | `60d8d70770c6776ff598c94bb586a859a38244f1`: shared-KV, attention sinks and compression contract | Preserve the numerical contract; no official source or model weight copied. |
+
+This increment starts after learned projections. It validates numerical
+pooling and attention but does not claim complete layer, checkpoint or Vulkan
+parity. The C API supports negative RoPE positions for the canonical inverse.
+
 ## Existing baseline provenance
 
 The target was forked from K3-in-C. Its Apache-2.0 `NOTICE` documents vendored

@@ -135,6 +135,14 @@ sliding, CSA and HCA boundaries, plus exact shared-KV expansion and grouped
 projection layout primitives. It does not yet implement RoPE, compressor
 pooling, sparse-index scoring, sink softmax or attention value accumulation.
 
+### P1-C implementation status — attention numerics
+
+The `p1c/attention-numerics` stacked branch adds portable FP32 C99
+reference operators for partial RoPE, sink-aware shared-KV attention and
+completed-window CSA/HCA pooling. Compressor publication is transactional.
+Sparse index scoring, full attention state wiring and Vulkan remain out of
+scope for this increment.
+
 ## Non-negotiable source-review rule
 
 Before developing from or integrating any external or sibling repository:
