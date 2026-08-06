@@ -1,0 +1,24 @@
+name: DeepSeek config contract
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Make integration
+        run: |
+          make test-dsv4-config
+          make dsv4-inspect
+      - name: CMake integration
+        run: |
+          cmake -S . -B /tmp/dsv4-build -DCMAKE_BUILD_TYPE=Release
+          cmake --build /tmp/dsv4-build --target test_dsv4_config dsv4-inspect -j2
+          ctest --test-dir /tmp/dsv4-build -R 'dsv4_' --output-on-failure
