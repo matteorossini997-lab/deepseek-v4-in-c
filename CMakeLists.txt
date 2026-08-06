@@ -128,6 +128,13 @@ add_executable(test_dsv4_cpu_ops tests/unit/test_dsv4_cpu_ops.c)
 target_include_directories(test_dsv4_cpu_ops PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures)
 target_link_libraries(test_dsv4_cpu_ops PRIVATE dsv4_cpu_ops)
 
+add_library(dsv4_attention_state STATIC src/cpu/dsv4_attention_state.c)
+target_include_directories(dsv4_attention_state PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include/dsv4)
+target_link_libraries(dsv4_attention_state PUBLIC m PRIVATE k3_flags)
+
+add_executable(test_dsv4_attention_state tests/unit/test_dsv4_attention_state.c)
+target_link_libraries(test_dsv4_attention_state PRIVATE dsv4_attention_state)
+
 k3_add_test(test_tok    tests/unit/test_tok.c)
 k3_add_test(scale_test  tests/unit/scale_test.c)
 k3_add_test(k3_model    tests/unit/k3_model.c)
@@ -169,6 +176,7 @@ ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_dsv4_inventory_gate.py
 --workdir ${CMAKE_CURRENT_BINARY_DIR}/dsv4-inventory-gate)
 
 add_test(NAME dsv4_cpu_ops COMMAND test_dsv4_cpu_ops)
+add_test(NAME dsv4_attention_state COMMAND test_dsv4_attention_state)
 
 add_test(NAME scale      COMMAND scale_test)
 add_test(NAME oracle     COMMAND k3_model   ${FIX})
