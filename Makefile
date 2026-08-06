@@ -65,7 +65,7 @@ TOK_FILES  ?= $(HOME)/k3model
 
 # ---------------------------------------------------------------------------- targets --
 .PHONY: all test test-all bench portable debug asan ubsan format clean install help \
-        tok cfg ops cache st oracle weights-test
+        tok cfg ops cache st oracle weights-test test-dsv4-mini dsv4-mini-oracle
 
 all: $(CLI_BIN)
 
@@ -152,6 +152,18 @@ cfg: $(BIN)/test_cfg
 ## bench: kernel microbenchmarks, no weights required
 bench: $(BIN)/bench_kernels
 	./$(BIN)/bench_kernels
+
+## test-dsv4-mini: deterministic FP32 DeepSeek V4 mini-oracle tests (requires PyTorch + pytest)
+test-dsv4-mini:
+	$(PYTHON) tools/dsv4_mini/run_tests.py
+
+## dsv4-mini-oracle: regenerate the canonical 130-token CPU oracle
+dsv4-mini-oracle:
+	$(PYTHON) -m tools.dsv4_mini.make_oracle \
+		--config tools/dsv4_mini/tiny_config.json \
+		--output tests/fixtures/dsv4-mini/oracle.json \
+		--device cpu \
+		--sequence-length 130
 
 ## portable: no -march=native, runs on any x86-64
 portable:

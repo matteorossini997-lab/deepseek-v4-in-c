@@ -1,0 +1,71 @@
+name: DeepSeek V4 mini-oracle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/dsv4_mini/**'
+      - 'tests/python/**'
+      - 'tests/fixtures/dsv4-mini/**'
+      - 'requirements-dsv4-mini.txt'
+      - '.github/workflows/dsv4-mini.yml'
+  pull_request:
+    paths:
+      - 'tools/dsv4_mini/**'
+      - 'tests/python/**'
+      - 'tests/fixtures/dsv4-mini/**'
+      - 'requirements-dsv4-mini.txt'
+      - '.github/workflows/dsv4-mini.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cpu-reference:
+    name: FP32 CPU oracle
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-dsv4-mini.txt
+      - name: Install CPU PyTorch and tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.10.0
+          python -m pip install 'pytest>=8,<10'
+      - name: Syntax check
+        run: python -m compileall -q tools/dsv4_mini tests/python
+      - name: Unit and parity gates
+        run: python tools/dsv4_mini/run_tests.py
+      - name: Generate clean 130-token oracle
+        run: |
+          python -m tools.dsv4_mini.make_oracle \
+            --config tools/dsv4_mini/tiny_config.json \
+            --output "$RUNNER_TEMP/dsv4-mini-oracle.json" \
+            --device cpu \
+            --sequence-length 130
+      - name: Validate generated summary
+        run: |
+          python - "$RUNNER_TEMP/dsv4-mini-oracle.json" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              oracle = json.load(handle)
+          assert oracle["parity"]["argmax_equal"]
+          assert oracle["parity"]["mtp_argmax_equal"]
+          assert oracle["parity"]["routes_equal"]
+          assert oracle["parity"]["max_abs_error"] <= 2e-6
+          assert oracle["trace"]["126"]["layers"][3]["attention"]["compressed_count"] == 0
+          assert oracle["trace"]["127"]["layers"][3]["attention"]["compressed_count"] == 1
+          print(json.dumps(oracle["parity"], indent=2, sort_keys=True))
+          PY
