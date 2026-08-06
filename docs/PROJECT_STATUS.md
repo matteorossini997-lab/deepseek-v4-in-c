@@ -151,6 +151,14 @@ applied per head before the signed head weight, matching the canonical
 formula. Query/weight projections and complete attention wiring remain out
 of scope for this increment.
 
+### P1-E implementation status — post-projection attention step
+
+The `p1e/postprojected-attention-step` stacked branch composes partial
+RoPE, CSA sparse selection, compressed-KV gather, sink-aware shared-KV
+attention, inverse RoPE and grouped/dense output projections. It covers
+sliding, CSA and HCA with transactional outputs. Learned input projections,
+owned cache buffers and a full decoder layer remain out of scope.
+
 ## Non-negotiable source-review rule
 
 Before developing from or integrating any external or sibling repository:

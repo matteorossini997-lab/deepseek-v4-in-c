@@ -1,0 +1,84 @@
+name: DeepSeek post-projection attention step
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'include/dsv4/dsv4_attention_step.h'
+      - 'src/cpu/dsv4_attention_step.c'
+      - 'tests/unit/test_dsv4_attention_step.c'
+      - 'tests/fixtures/dsv4_attention_step_vectors.h'
+      - 'tools/dsv4_mini/make_attention_step_fixture.py'
+      - 'Makefile'
+      - 'CMakeLists.txt'
+      - '.github/workflows/dsv4-attention-step.yml'
+  pull_request:
+    paths:
+      - 'include/dsv4/dsv4_attention_step.h'
+      - 'src/cpu/dsv4_attention_step.c'
+      - 'tests/unit/test_dsv4_attention_step.c'
+      - 'tests/fixtures/dsv4_attention_step_vectors.h'
+      - 'tools/dsv4_mini/make_attention_step_fixture.py'
+      - 'Makefile'
+      - 'CMakeLists.txt'
+      - '.github/workflows/dsv4-attention-step.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reference:
+    name: ${{ matrix.compiler }} FP32 reference
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Select compiler
+        run: |
+          if [[ '${{ matrix.compiler }}' == gcc ]]; then
+            echo 'CC=gcc' >> "$GITHUB_ENV"
+          else
+            echo 'CC=clang' >> "$GITHUB_ENV"
+          fi
+      - name: Focused Make gate
+        run: make test-dsv4-attention-step CC="$CC"
+      - name: GCC analyzer
+        if: matrix.compiler == 'gcc'
+        run: |
+          gcc -O0 -g -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror \
+              -fanalyzer -ffp-contract=off -Iinclude/dsv4 \
+              -c src/cpu/dsv4_attention_step.c \
+              -o "$RUNNER_TEMP/dsv4_attention_step_analyzer.o"
+      - name: ASan and UBSan
+        run: |
+          "$CC" -O1 -g -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror \
+             -ffp-contract=off -fsanitize=address,undefined \
+             -fno-omit-frame-pointer -Iinclude/dsv4 -Itests/fixtures \
+             tests/unit/test_dsv4_attention_step.c \
+             src/cpu/dsv4_attention_step.c \
+             src/cpu/dsv4_attention_numeric.c \
+             src/cpu/dsv4_attention_state.c \
+             src/cpu/dsv4_sparse_index.c -lm \
+             -fsanitize=address,undefined \
+             -o "$RUNNER_TEMP/test_dsv4_attention_step_asan"
+          ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 \
+          UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+            "$RUNNER_TEMP/test_dsv4_attention_step_asan"
+      - name: CMake and CTest
+        run: |
+          cmake -S . -B "$RUNNER_TEMP/build" \
+            -DK3_NATIVE_ARCH=OFF -DCMAKE_C_COMPILER="$CC"
+          cmake --build "$RUNNER_TEMP/build" \
+            --target test_dsv4_attention_step -j"$(nproc)"
+          ctest --test-dir "$RUNNER_TEMP/build" \
+            -R '^dsv4_attention_step$' --output-on-failure
+      - name: Tree hygiene
+        run: git diff --check

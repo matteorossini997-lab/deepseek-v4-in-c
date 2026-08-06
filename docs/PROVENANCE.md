@@ -156,6 +156,20 @@ backends. The C reference uses lower token index as the exact-tie break; the
 canonical fixture contains no ties and a separate adversarial test covers the
 portable rule.
 
+## P1-E: post-projection attention step
+
+**Review date:** 2026-08-06
+
+| Source | Exact ref and files reviewed | Decision |
+|---|---|---|
+| target mini-oracle | `13952eff5dcf75ce75e692d5a03e714e47de2fd4`: `MiniAttention.step`, `_attention_with_sink`, `GroupedLinear`, RoPE helpers and `MiniIndexer.step` | COMPOSE the already verified native primitives in the canonical order and generate deterministic final-output vectors. |
+| P1-B/P1-C/P1-D native references | attention state/layout, numerical primitives and sparse-index top-k | REUSE their public APIs; the compositer owns only temporary gather buffers and transactional publication. |
+
+The input Q and KV arrays start after learned projections and normalization;
+raw/compressed KV already carry their per-entry RoPE. This increment therefore
+claims post-projection single-step parity, not a complete layer or checkpoint
+execution path.
+
 ## Existing baseline provenance
 
 The target was forked from K3-in-C. Its Apache-2.0 `NOTICE` documents vendored
