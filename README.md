@@ -1,3 +1,11 @@
+> [!IMPORTANT]
+> **Development status (2026-08-06):** this repository currently contains the
+> unchanged Kimi K3 CPU runtime inherited from `FareedKhan-dev/kimi-k3-in-c`.
+> DeepSeek V4 Flash support is under design and is not implemented yet. See
+> [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) and
+> [`docs/PROVENANCE.md`](docs/PROVENANCE.md).
+>
+
 <div align="center">
 
 <h1>kimi-k3-in-c</h1>
