@@ -49,7 +49,7 @@ CLI_SRC    := src/cli/k3_run.c
 CLI_BIN    := $(BIN)/k3
 
 # Tests that need no checkpoint. These run in CI on every push.
-UNIT_TESTS := test_ops test_cache test_st test_cfg test_tok scale_test k3_model
+UNIT_TESTS := test_ops test_cache test_st test_cfg test_tok test_dsv4_config scale_test k3_model
 # Tests that need real shards. Built and run by `make test-all` with SHARD_DIR set;
 # see the weights-test target below.
 WEIGHT_TESTS := test_expert test_real_layer
@@ -65,7 +65,7 @@ TOK_FILES  ?= $(HOME)/k3model
 
 # ---------------------------------------------------------------------------- targets --
 .PHONY: all test test-all bench portable debug asan ubsan format clean install help \
-        tok cfg ops cache st oracle weights-test
+        tok cfg ops cache st oracle weights-test test-dsv4-config dsv4-inspect
 
 all: $(CLI_BIN)
 
@@ -91,6 +91,13 @@ $(BIN)/test_cache: tests/unit/test_cache.c $(BUILD)/src/cache/k3_cache.o \
 $(BIN)/test_st: tests/unit/test_st.c $(BUILD)/src/io/k3_st.o | $(BIN)
 	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@ $(LDFLAGS)
 
+# The DeepSeek config contract is portable C99 and independent of the K3 engine.
+$(BIN)/test_dsv4_config: tests/unit/test_dsv4_config.c src/model/dsv4_config.c include/dsv4/dsv4_config.h third_party/json.h | $(BIN)
+	$(CC) -O2 -std=c99 $(WARN) -Wno-unused-function -Iinclude/dsv4 -Ithird_party tests/unit/test_dsv4_config.c src/model/dsv4_config.c -o $@ -lm
+
+$(BIN)/dsv4-inspect: src/cli/dsv4_inspect.c src/model/dsv4_config.c include/dsv4/dsv4_config.h third_party/json.h | $(BIN)
+	$(CC) -O2 -std=c99 $(WARN) -Wno-unused-function -Iinclude/dsv4 -Ithird_party src/cli/dsv4_inspect.c src/model/dsv4_config.c -o $@ -lm
+
 # The tokenizer and config reader are portable C99 with no OpenMP and no platform calls,
 # so they build and are verifiable on any machine, including one with no checkpoint.
 $(BIN)/test_tok: tests/unit/test_tok.c | $(BIN)
@@ -110,13 +117,27 @@ $(BIN)/k3_model: tests/unit/k3_model.c $(BUILD)/src/core/k3_ops.o | $(BIN)
 $(BIN)/bench_kernels: benchmarks/bench_kernels.c $(BUILD)/src/core/k3_ops.o | $(BIN)
 	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@ $(LDFLAGS)
 
+dsv4-inspect: $(BIN)/dsv4-inspect
+
+test-dsv4-config: $(BIN)/test_dsv4_config $(BIN)/dsv4-inspect
+	$(BIN)/test_dsv4_config hf $(FIXTURES)/dsv4/config_hf.json
+	$(BIN)/test_dsv4_config inference $(FIXTURES)/dsv4/config_inference.json
+	$(BIN)/test_dsv4_config reject $(FIXTURES)/dsv4/config_missing.json num_hidden_layers
+	$(BIN)/test_dsv4_config reject $(FIXTURES)/dsv4/config_conflict.json conflict
+	$(BIN)/test_dsv4_config reject $(FIXTURES)/dsv4/config_bad_ratios.json compress_ratios
+	$(BIN)/test_dsv4_config reject $(FIXTURES)/dsv4/config_bad_topk.json n_activated_experts
+	$(BIN)/test_dsv4_config reject $(FIXTURES)/dsv4/config_bad_format.json expert_dtype
+	$(BIN)/dsv4-inspect --json $(FIXTURES)/dsv4/config_hf.json | grep -F '"profile":"deepseek-v4-flash"'
+	$(BIN)/dsv4-inspect --json $(FIXTURES)/dsv4/config_inference.json | grep -F '"layout":"inference"'
+
 ## test: everything that needs no model weights
-test: $(TEST_BINS)
+test: $(TEST_BINS) $(BIN)/dsv4-inspect
 	@echo "== op kernels ==";        ./$(BIN)/test_ops $(FIXTURES)/ops
 	@echo "== streaming cache ==";   ./$(BIN)/test_cache $(FIXTURES)/cache
 	@echo "== safetensors ==";       ./$(BIN)/test_st $(FIXTURES)/st $(BUILD)/st_index.json \
 	    plain.f32.2d plain.bf16.1d tricky.f16.1d packed.u8.2d scalar.f32 second.shard.f32
 	@echo "== config reader ==";     ./$(BIN)/test_cfg fixture $(FIXTURES)/ref_k3.json
+	@echo "== DeepSeek config ==";    $(MAKE) --no-print-directory test-dsv4-config
 	@echo "== tokenizer ==";         ./$(BIN)/test_tok $(TOK_FILES) roundtrip src/core/k3_ops.c \
 	    || echo "  (skipped: no tokenizer files at $(TOK_FILES))"
 	@echo "== real dimensions ==";   ./$(BIN)/scale_test
