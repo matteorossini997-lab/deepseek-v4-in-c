@@ -128,6 +128,13 @@ Canonical vectors are generated from the merged PyTorch classes with explicit
 weights and inputs. Attention, experts, MTP and a complete C decoder remain out
 of scope for this increment.
 
+### P1-B implementation status — attention state and layout
+
+The `p1b/attention-state-layout` stacked branch adds native metadata state for
+sliding, CSA and HCA boundaries, plus exact shared-KV expansion and grouped
+projection layout primitives. It does not yet implement RoPE, compressor
+pooling, sparse-index scoring, sink softmax or attention value accumulation.
+
 ## Non-negotiable source-review rule
 
 Before developing from or integrating any external or sibling repository:

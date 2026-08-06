@@ -115,6 +115,20 @@ descending and lower expert id for ties. Generated cases assert no ties and
 compare the selected set before canonicalization. This increment is FP32 CPU
 reference code only and does not claim production checkpoint or Vulkan parity.
 
+## P1-B: attention state and layout primitives
+
+**Review date:** 2026-08-06
+
+| Source | Exact ref and files reviewed | Decision |
+|---|---|---|
+| target mini-oracle | `13952eff5dcf75ce75e692d5a03e714e47de2fd4`: `MiniAttention`, `MiniCompressor`, `MiniIndexer`, `GroupedLinear` and attention boundary tests | REWRITE state metadata and layout primitives in portable C99; preserve rate and boundary semantics. |
+| official DeepSeek V4 Flash | `60d8d70770c6776ff598c94bb586a859a38244f1`: shared-KV and grouped output projection contract | Preserve one KV head and grouped projection layout; no official source copied. |
+
+Local boundary: this increment tracks cache slots and compression/indexer
+counts but owns no tensor buffers. Shared-KV expansion is a CPU reference
+primitive; a production Vulkan kernel may broadcast without materialization.
+No attention numerical parity is claimed yet.
+
 ## Existing baseline provenance
 
 The target was forked from K3-in-C. Its Apache-2.0 `NOTICE` documents vendored

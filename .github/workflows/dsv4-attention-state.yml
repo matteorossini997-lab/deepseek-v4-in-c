@@ -1,0 +1,77 @@
+name: DeepSeek attention state and layout
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'include/dsv4/dsv4_attention_state.h'
+      - 'src/cpu/dsv4_attention_state.c'
+      - 'tests/unit/test_dsv4_attention_state.c'
+      - 'Makefile'
+      - 'CMakeLists.txt'
+      - '.github/workflows/dsv4-attention-state.yml'
+  pull_request:
+    paths:
+      - 'include/dsv4/dsv4_attention_state.h'
+      - 'src/cpu/dsv4_attention_state.c'
+      - 'tests/unit/test_dsv4_attention_state.c'
+      - 'Makefile'
+      - 'CMakeLists.txt'
+      - '.github/workflows/dsv4-attention-state.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  portable-state-layout:
+    name: ${{ matrix.compiler }} state/layout reference
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Select compiler
+        run: |
+          if [[ '${{ matrix.compiler }}' == clang ]]; then
+            echo 'CC=clang' >> "$GITHUB_ENV"
+          else
+            echo 'CC=gcc' >> "$GITHUB_ENV"
+          fi
+      - name: Focused Make gate
+        run: make test-dsv4-attention-state CC="$CC"
+      - name: GCC analyzer
+        if: matrix.compiler == 'gcc'
+        run: |
+          gcc -O0 -g -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror \
+              -fanalyzer -ffp-contract=off -Iinclude/dsv4 \
+              -c src/cpu/dsv4_attention_state.c \
+              -o "$RUNNER_TEMP/dsv4_attention_state_analyzer.o"
+      - name: ASan and UBSan
+        run: |
+          "$CC" -O1 -g -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror \
+            -ffp-contract=off -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -Iinclude/dsv4 \
+            tests/unit/test_dsv4_attention_state.c \
+            src/cpu/dsv4_attention_state.c -lm \
+            -fsanitize=address,undefined \
+            -o "$RUNNER_TEMP/test_dsv4_attention_state_asan"
+          ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 \
+          UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+            "$RUNNER_TEMP/test_dsv4_attention_state_asan"
+      - name: CMake and CTest
+        run: |
+          cmake -S . -B "$RUNNER_TEMP/build" \
+            -DK3_NATIVE_ARCH=OFF -DCMAKE_C_COMPILER="$CC"
+          cmake --build "$RUNNER_TEMP/build" \
+            --target test_dsv4_attention_state -j"$(nproc)"
+          ctest --test-dir "$RUNNER_TEMP/build" \
+            -R '^dsv4_attention_state$' --output-on-failure
+      - name: Tree hygiene
+        run: git diff --check
