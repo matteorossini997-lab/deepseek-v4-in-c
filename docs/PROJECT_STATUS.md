@@ -143,6 +143,14 @@ completed-window CSA/HCA pooling. Compressor publication is transactional.
 Sparse index scoring, full attention state wiring and Vulkan remain out of
 scope for this increment.
 
+### P1-D implementation status — CSA sparse index top-k
+
+The `p1d/sparse-index-topk` stacked branch adds the native FP32
+post-projection MiniIndexer score and deterministic sorted top-k. ReLU is
+applied per head before the signed head weight, matching the canonical
+formula. Query/weight projections and complete attention wiring remain out
+of scope for this increment.
+
 ## Non-negotiable source-review rule
 
 Before developing from or integrating any external or sibling repository:
