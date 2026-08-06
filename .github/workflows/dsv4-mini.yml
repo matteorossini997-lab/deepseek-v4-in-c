@@ -8,6 +8,7 @@ on:
       - 'tests/python/**'
       - 'tests/fixtures/dsv4-mini/**'
       - 'tests/fixtures/dsv4_cpu_ops_vectors.h'
+      - 'tests/fixtures/dsv4_attention_numeric_vectors.h'
       - 'requirements-dsv4-mini.txt'
       - 'Makefile'
       - '.github/workflows/dsv4-mini.yml'
@@ -17,6 +18,7 @@ on:
       - 'tests/python/**'
       - 'tests/fixtures/dsv4-mini/**'
       - 'tests/fixtures/dsv4_cpu_ops_vectors.h'
+      - 'tests/fixtures/dsv4_attention_numeric_vectors.h'
       - 'requirements-dsv4-mini.txt'
       - 'Makefile'
       - '.github/workflows/dsv4-mini.yml'
@@ -54,6 +56,12 @@ jobs:
             --output "$RUNNER_TEMP/dsv4_cpu_ops_vectors.h"
           cmp "$RUNNER_TEMP/dsv4_cpu_ops_vectors.h" \
             tests/fixtures/dsv4_cpu_ops_vectors.h
+      - name: Regenerate canonical attention numeric fixture
+        run: |
+          python -m tools.dsv4_mini.make_attention_numeric_fixture \
+            --output "$RUNNER_TEMP/dsv4_attention_numeric_vectors.h"
+          cmp "$RUNNER_TEMP/dsv4_attention_numeric_vectors.h" \
+            tests/fixtures/dsv4_attention_numeric_vectors.h
       - name: Verify Make target uses isolated runner
         run: make -n test-dsv4-mini PYTHON=python | grep -F 'python tools/dsv4_mini/run_tests.py'
       - name: Unit and parity gates
