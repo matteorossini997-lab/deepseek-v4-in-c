@@ -170,6 +170,27 @@ raw/compressed KV already carry their per-entry RoPE. This increment therefore
 claims post-projection single-step parity, not a complete layer or checkpoint
 execution path.
 
+## P1-F: native learned-projection attention runtime
+
+**Review date:** 2026-08-07
+
+| Source | Exact ref and files reviewed | Decision |
+|---|---|---|
+| target P1-E + mini-oracle | `70c79636aa92af42552da035290348e9e504ffa0`: `tools/dsv4_mini/reference.py`, `initialization.py`, tiny config, P1-C/P1-D/P1-E public C APIs and tests | REWRITE runtime ownership/projection glue; KEEP the verified RoPE/compressor/sink/top-k/post-projection primitives. |
+| official DeepSeek V4 Flash | `60d8d70770c6776ff598c94bb586a859a38244f1`: current inference attention construction/order and kernel contract re-reviewed 2026-08-07 | Preserve q_a/q_norm/q_b/per-head RMS, shared kv_norm, compressor/indexer ordering, sink attention and wo_a/wo_b order; no official source or checkpoint data copied. |
+
+The separately surfaced `DeepSeek-V4-Flash-0731` release was not substituted
+for the approved target because this review did not establish a separate
+indexed inference contract. P1-F remains pinned to the exact source ref above.
+
+Local differences: the C reference is batch-one and one-token-per-step; it
+clones mutable state before every step so errors remain transactional. The
+canonical generator fills the real PyTorch `MiniAttention` with explicit
+binary-fraction weights and compares sliding, CSA and HCA incremental outputs.
+RED run `31166922290` reached the expected undefined runtime symbols after
+successful fixture generation; focused GREEN run `31167437819` passed the
+same parity fixture and public-header compile.
+
 ## Existing baseline provenance
 
 The target was forked from K3-in-C. Its Apache-2.0 `NOTICE` documents vendored
@@ -183,7 +204,7 @@ authoritative until files are removed or replaced.
 | Safetensors scanner and aligned reads | K3 `src/io/k3_st.c`, `tests/unit/test_st.c`, `tools/verify_st.py` | KEEP/EXTEND | P0-B2 implementation in review; K3 production reader unchanged |
 | Config reader and binder discipline | K3 config/binder plus official DeepSeek config/model | REWRITE pattern | Configuration normalizer complete; tensor binder not started |
 | Expert loader and trunk packing | K3 `src/io/k3_load.c`, `src/io/k3_trunk.c`, pack tools | ADAPT | Not started |
-| Tiny oracle methodology | Local mini-oracle plus official DeepSeek graph | KEEP/EXTEND | FP32 mini-oracle complete; native C/Vulkan parity not started |
+| Tiny oracle methodology | Local mini-oracle plus official DeepSeek graph | KEEP/EXTEND | FP32 mini-oracle complete; native C attention parity reaches the P1-F incremental runtime; Vulkan parity not started |
 | DeepSeek graph and formats | Official DeepSeek config, `inference/model.py`, `kernel.py`, `convert.py` | REWRITE | Config and FP32 mini reference complete; production graph/formats not started |
 | Doctor and Autotune | q36 Doctor/Autotune sources and tests | PORT/GENERALIZE | Not started |
 | Vulkan tensor runtime | q36 GPU API, Vulkan source, shader/test infrastructure | EXTRACT/PORT | Not started |
