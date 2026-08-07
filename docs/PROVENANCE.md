@@ -228,6 +228,24 @@ changing production logic, to use a guaranteed learned-MoE missing-bias failure
 after the staged attention step. GREEN run `31170544589` then passed full
 sliding/CSA/HCA parity, rollback retry and public-header compilation.
 
+## P1-I: native base-model shell
+
+**Review date:** 2026-08-07
+
+| Source | Exact ref and files reviewed | Decision |
+|---|---|---|
+| target P1-H + mini-oracle | `df79a91c4e24bf3629dd4bd6c57557163393a0ce`: `MiniReferenceModel`, `_expand_embeddings`, `HyperHead`, `DecoderLayer.step`, P1-H API/tests | KEEP decoder layers; REWRITE only model ownership, embedding expansion, HyperHead, final norm/LM head and whole-model transactionality. |
+| official DeepSeek V4 Flash | approved source lineage `60d8d70770c6776ff598c94bb586a859a38244f1`; current top-level inference model/config re-reviewed 2026-08-07 | Preserve embedding -> HC copies -> block stack -> HC head/final norm -> vocabulary head; keep MTP separate and sharing top-level embedding/head semantics; no official source or weights copied. |
+
+P1-I exposes a minimal P1-H decoder deep-clone API so all base-layer states can
+be staged before commit. The deterministic fixture vendors the generated FP32
+weights as well as expected outputs, avoiding a second C implementation of the
+test-only weight formulas while still constructing the weights through the real
+PyTorch modules. RED run `31171774161` generated the 129-token fixture and
+failed only on undefined `dsv4_model_*` symbols. Focused GREEN run
+`31172486262` passed all 129 stream/logit/argmax comparisons, the multi-layer
+rollback retry and public-header compilation.
+
 ## Existing baseline provenance
 
 The target was forked from K3-in-C. Its Apache-2.0 `NOTICE` documents vendored

@@ -183,6 +183,14 @@ add_executable(test_dsv4_decoder_layer tests/unit/test_dsv4_decoder_layer.c)
 target_include_directories(test_dsv4_decoder_layer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures)
 target_link_libraries(test_dsv4_decoder_layer PRIVATE dsv4_decoder_layer)
 
+add_library(dsv4_model STATIC src/cpu/dsv4_model.c)
+target_include_directories(dsv4_model PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include/dsv4)
+target_link_libraries(dsv4_model PUBLIC m dsv4_decoder_layer PRIVATE k3_flags)
+
+add_executable(test_dsv4_model tests/unit/test_dsv4_model.c)
+target_include_directories(test_dsv4_model PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures)
+target_link_libraries(test_dsv4_model PRIVATE dsv4_model)
+
 k3_add_test(test_tok    tests/unit/test_tok.c)
 k3_add_test(scale_test  tests/unit/scale_test.c)
 k3_add_test(k3_model    tests/unit/k3_model.c)
@@ -231,6 +239,7 @@ add_test(NAME dsv4_attention_step COMMAND test_dsv4_attention_step)
 add_test(NAME dsv4_attention_runtime COMMAND test_dsv4_attention_runtime)
 add_test(NAME dsv4_moe COMMAND test_dsv4_moe)
 add_test(NAME dsv4_decoder_layer COMMAND test_dsv4_decoder_layer)
+add_test(NAME dsv4_model COMMAND test_dsv4_model)
 
 add_test(NAME scale      COMMAND scale_test)
 add_test(NAME oracle     COMMAND k3_model   ${FIX})

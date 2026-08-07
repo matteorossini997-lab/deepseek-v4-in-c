@@ -191,6 +191,17 @@ fixtures cover sliding/hash, CSA/learned and HCA/learned including position
 127/128. Embedding/LM head, MTP, checkpoint binding, FP8/FP4 and Vulkan remain
 out of scope.
 
+### P1-I implementation status — native base-model shell
+
+The `p1i/native-model-shell` stacked branch composes token embedding, all
+P1-H decoder layers, final HyperHead collapse, weighted RMSNorm and the LM
+head into a transactional FP32 batch-one/token-one base model. Every decoder
+layer is deep-cloned before execution and committed only after final logits are
+finite, so a late failure in a later layer rolls back the whole model token.
+The canonical 129-token fixture crosses sliding, CSA and the first HCA boundary
+and publishes final streams for P1-J MTP reuse. MTP itself remains deliberately
+out of scope.
+
 ## Non-negotiable source-review rule
 
 Before developing from or integrating any external or sibling repository:

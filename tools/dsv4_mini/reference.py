@@ -338,7 +338,9 @@ class MiniIndexer(nn.Module):
         head_weights = self.weight_proj(hidden_states).float() * (self.num_heads**-0.5)
         scores = (scores * head_weights.unsqueeze(-1)).sum(dim=2).squeeze(1)
         top_k = min(self.top_k, compressed.shape[1])
-        indices = torch.topk(scores, top_k, dim=-1, sorted=True).indices
+        # Exact score ties are intentionally deterministic: stable descending sort
+        # preserves the original ascending token index for equal scores.
+        indices = torch.argsort(scores, dim=-1, descending=True, stable=True)[:, :top_k]
         if batch != 1:
             raise ValueError("the diagnostic mini-oracle currently records index traces for batch size one")
         return compressed, tuple(int(value) for value in indices[0].tolist())

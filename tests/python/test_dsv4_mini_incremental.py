@@ -6,7 +6,7 @@ import torch
 
 from tools.dsv4_mini.config import load_config
 from tools.dsv4_mini.initialization import initialize_reference_model
-from tools.dsv4_mini.reference import LearnedRouter
+from tools.dsv4_mini.reference import LearnedRouter, MiniIndexer
 
 
 CONFIG_PATH = Path(__file__).resolve().parents[2] / "tools" / "dsv4_mini" / "tiny_config.json"
@@ -48,6 +48,30 @@ def test_full_and_incremental_match_through_sliding_and_csa_boundaries() -> None
                 == traces[position].layers[layer_idx].attention.compressed_count
             )
         assert full.trace[position].mtp.route_indices == traces[position].mtp.route_indices
+
+
+def test_indexer_breaks_exact_score_ties_by_lower_token_index() -> None:
+    """P1-D's portable contract is score-descending, then token-index ascending.
+
+    The official PyTorch implementation calls topk directly, whose order for exact
+    ties is backend-dependent. The mini-oracle fixes that otherwise unspecified
+    case so CPU/Vulkan/CUDA references compare the same selected KV positions.
+    """
+
+    cfg = load_config(CONFIG_PATH)
+    indexer = MiniIndexer(cfg, rate=4).eval()
+    indexer.top_k = 2
+    with torch.no_grad():
+        indexer.q_proj.weight.zero_()
+        indexer.weight_proj.weight.zero_()
+    state = indexer.new_state(batch_size=1, device=torch.device("cpu"), dtype=torch.float32)
+    state.compressed = torch.zeros(1, 4, cfg.index_head_dim)
+
+    hidden = torch.zeros(1, 1, cfg.hidden_size)
+    q_residual = torch.zeros(1, 1, cfg.q_lora_rank)
+    _, indices = indexer.step(hidden, q_residual, position=16, state=state)
+
+    assert indices == (0, 1)
 
 
 def test_full_and_incremental_match_hca_boundary_127_to_129() -> None:

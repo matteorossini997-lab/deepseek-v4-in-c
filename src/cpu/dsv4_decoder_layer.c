@@ -158,6 +158,35 @@ done:
     return layer;
 }
 
+DSV4DecoderLayer *dsv4_decoder_layer_clone(
+    const DSV4DecoderLayer *source,
+    DSV4DecoderLayerStatus *out_status)
+{
+    DSV4DecoderLayer *copy = NULL;
+    DSV4DecoderLayerStatus status = DSV4_DL_INVALID_ARGUMENT;
+    DSV4AttentionRuntimeStatus attention_status;
+
+    if (source == NULL || source->attention == NULL) goto done;
+    copy = (DSV4DecoderLayer *)calloc(1u, sizeof(*copy));
+    if (copy == NULL) {
+        status = DSV4_DL_ALLOCATION_FAILED;
+        goto done;
+    }
+    copy->config = source->config;
+    copy->attention = dsv4_attention_runtime_clone(source->attention, &attention_status);
+    if (copy->attention == NULL) {
+        status = map_attention(attention_status);
+        free(copy);
+        copy = NULL;
+        goto done;
+    }
+    status = DSV4_DL_OK;
+
+done:
+    if (out_status != NULL) *out_status = status;
+    return copy;
+}
+
 void dsv4_decoder_layer_destroy(DSV4DecoderLayer *layer)
 {
     if (layer == NULL) return;
