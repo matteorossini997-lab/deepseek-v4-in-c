@@ -1,0 +1,78 @@
+name: DeepSeek native MTP
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/cpu/dsv4_mtp.c'
+      - 'include/dsv4/dsv4_mtp.h'
+      - 'tests/unit/test_dsv4_mtp.c'
+      - 'tests/fixtures/dsv4_mtp_vectors.h'
+      - 'tests/fixtures/dsv4_model_shell_vectors.h'
+      - 'tools/dsv4_mini/make_mtp_fixture.py'
+      - 'Makefile'
+      - 'CMakeLists.txt'
+      - '.github/workflows/dsv4-mtp.yml'
+  pull_request:
+    paths:
+      - 'src/cpu/dsv4_mtp.c'
+      - 'include/dsv4/dsv4_mtp.h'
+      - 'tests/unit/test_dsv4_mtp.c'
+      - 'tests/fixtures/dsv4_mtp_vectors.h'
+      - 'tests/fixtures/dsv4_model_shell_vectors.h'
+      - 'tools/dsv4_mini/make_mtp_fixture.py'
+      - 'Makefile'
+      - 'CMakeLists.txt'
+      - '.github/workflows/dsv4-mtp.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fp32-reference:
+    name: ${{ matrix.cc }} FP32 reference
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Focused Make gate
+        run: make test-dsv4-mtp CC=${{ matrix.cc }}
+      - name: GCC analyzer
+        if: matrix.cc == 'gcc'
+        run: |
+          gcc -O0 -g -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror \
+              -fanalyzer -ffp-contract=off -Iinclude/dsv4 \
+              -c src/cpu/dsv4_mtp.c -o "$RUNNER_TEMP/dsv4_mtp_analyzer.o"
+      - name: ASan and UBSan
+        run: |
+          ${{ matrix.cc }} -O1 -g -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror \
+              -ffp-contract=off -fsanitize=address,undefined -fno-omit-frame-pointer \
+              -Iinclude/dsv4 -Itests/fixtures \
+              tests/unit/test_dsv4_mtp.c src/cpu/dsv4_mtp.c \
+              src/cpu/dsv4_decoder_layer.c src/cpu/dsv4_attention_runtime.c \
+              src/cpu/dsv4_attention_step.c src/cpu/dsv4_attention_numeric.c \
+              src/cpu/dsv4_attention_state.c src/cpu/dsv4_sparse_index.c \
+              src/cpu/dsv4_moe.c src/cpu/dsv4_cpu_ops.c -lm \
+              -fsanitize=address,undefined -o "$RUNNER_TEMP/test_dsv4_mtp_san"
+          ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 \
+          UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+            "$RUNNER_TEMP/test_dsv4_mtp_san"
+      - name: CMake and CTest
+        run: |
+          cmake -S . -B "$RUNNER_TEMP/build" -DK3_NATIVE_ARCH=OFF -DCMAKE_C_COMPILER=${{ matrix.cc }}
+          cmake --build "$RUNNER_TEMP/build" --target test_dsv4_mtp -j"$(nproc)"
+          ctest --test-dir "$RUNNER_TEMP/build" -R '^dsv4_mtp$' --output-on-failure
+      - name: Tree hygiene
+        run: |
+          git diff --check
+          test -f tests/fixtures/dsv4_mtp_vectors.h
+          grep -F 'test-dsv4-mtp' Makefile

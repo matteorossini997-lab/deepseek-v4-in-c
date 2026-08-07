@@ -216,3 +216,7 @@ Before developing from or integrating any external or sibling repository:
 8. preserve attribution in copied or substantially derived files.
 
 A PR that ports code without this evidence is incomplete even when tests pass.
+
+### P1-J native MTP
+
+Portable FP32 batch-one/token-one MTP runtime is implemented on top of P1-H. It reuses the P1-I shared embedding/LM head, owns the extra MTP decoder state, performs `enorm/e_proj + hnorm/h_proj`, MTP decoder, HC head and final norm, and commits state only after finite vocabulary logits. Canonical parity covers 20 incremental tokens through raw-window wraparound plus learned routes and rollback.
