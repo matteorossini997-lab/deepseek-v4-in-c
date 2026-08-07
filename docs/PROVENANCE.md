@@ -294,3 +294,14 @@ authoritative until files are removed or replaced.
 - Generated fixtures must identify generator and authoritative reference ref.
 - Model weights and packed artifacts must not be committed without explicit
   license and repository-policy review.
+
+## P1-J native MTP source review
+
+**Review date:** 2026-08-07
+
+- Target base: `p1i/native-model-shell@e67a8f6b1203c417724f8e47f74dd5f9af56dab5`.
+- Mini-oracle: `MTPBlock`, `DecoderLayer` and deterministic P1-I base-stream generator.
+- Official DeepSeek V4 Flash current inference lineage: MTP applies shared embedding -> `enorm/e_proj`, base streams -> `hnorm/h_proj`, sums them, runs one full extra Block, then MTP HC head/final norm and the shared vocabulary head. The converter avoids duplicating MTP-local embedding/head weights.
+- q36 `feat/dsv4-mini-oracle@d6684ca33d4da496cd2e805ce159c2db7892f98a` remains design-only.
+
+Decision: **KEEP** P1-H decoder execution/state and P1-I shared weight ownership; **REWRITE** MTP glue/state in portable C99. No official code or checkpoint bytes are copied.
