@@ -170,6 +170,16 @@ fixtures execute the real `MiniAttention.step` across sliding, CSA and HCA,
 including the HCA position-127 boundary. Checkpoint binding, MoE/mHC decoder
 execution, Vulkan and optimized allocation remain out of scope.
 
+### P1-G implementation status — native sparse MoE
+
+The `p1g/native-moe` stacked branch adds a portable FP32 one-token MoE
+reference for both hash and learned routing. Hash layers consume an explicit
+caller-owned `tid2eid` table, learned layers reuse the P1-A correction-bias
+router, and selected routed experts are accumulated with one unweighted shared
+expert using the canonical clamped SwiGLU order. Output and route diagnostics
+are transactional. Checkpoint FP4 decoding, expert streaming/caching, decoder
+mHC composition and Vulkan remain out of scope.
+
 ## Non-negotiable source-review rule
 
 Before developing from or integrating any external or sibling repository:
