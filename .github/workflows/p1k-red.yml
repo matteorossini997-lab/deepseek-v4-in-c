@@ -1,0 +1,45 @@
+name: P1-K full runtime RED
+
+on:
+  push:
+    branches: [p1k/full-runtime-generation]
+    paths: ['.github/workflows/p1k-red.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  expected-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install CPU PyTorch
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.10.0
+      - name: Generate combined fixture
+        run: python -m tools.dsv4_mini.make_full_runtime_fixture --output "$RUNNER_TEMP/dsv4_full_runtime_vectors.h"
+      - name: Observe missing full runtime
+        shell: bash
+        run: |
+          set +e
+          cc -O2 -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror -ffp-contract=off \
+             -Iinclude/dsv4 -Itests/fixtures -Itests/unit -I"$RUNNER_TEMP" \
+             tests/unit/test_dsv4_full_model.c \
+             src/cpu/dsv4_model.c src/cpu/dsv4_mtp.c src/cpu/dsv4_decoder_layer.c \
+             src/cpu/dsv4_attention_runtime.c src/cpu/dsv4_attention_step.c \
+             src/cpu/dsv4_attention_numeric.c src/cpu/dsv4_attention_state.c \
+             src/cpu/dsv4_sparse_index.c src/cpu/dsv4_moe.c src/cpu/dsv4_cpu_ops.c -lm \
+             -o "$RUNNER_TEMP/test_dsv4_full" 2>"$RUNNER_TEMP/link.log"
+          rc=$?
+          cat "$RUNNER_TEMP/link.log"
+          test "$rc" -ne 0
+          grep -F 'dsv4_full_model_create' "$RUNNER_TEMP/link.log"
+          grep -F 'dsv4_full_model_step_f32' "$RUNNER_TEMP/link.log"
+          grep -F 'dsv4_full_model_generate_greedy' "$RUNNER_TEMP/link.log"
+          echo 'Observed expected RED: full runtime has no implementation.'
+          exit 1
