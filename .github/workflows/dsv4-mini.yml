@@ -11,6 +11,7 @@ on:
       - 'tests/fixtures/dsv4_attention_numeric_vectors.h'
       - 'tests/fixtures/dsv4_sparse_index_vectors.h'
       - 'tests/fixtures/dsv4_attention_step_vectors.h'
+      - 'tests/fixtures/dsv4_attention_runtime_vectors.h'
       - 'requirements-dsv4-mini.txt'
       - 'Makefile'
       - '.github/workflows/dsv4-mini.yml'
@@ -23,6 +24,7 @@ on:
       - 'tests/fixtures/dsv4_attention_numeric_vectors.h'
       - 'tests/fixtures/dsv4_sparse_index_vectors.h'
       - 'tests/fixtures/dsv4_attention_step_vectors.h'
+      - 'tests/fixtures/dsv4_attention_runtime_vectors.h'
       - 'requirements-dsv4-mini.txt'
       - 'Makefile'
       - '.github/workflows/dsv4-mini.yml'
@@ -78,6 +80,12 @@ jobs:
             --output "$RUNNER_TEMP/dsv4_attention_step_vectors.h"
           cmp "$RUNNER_TEMP/dsv4_attention_step_vectors.h" \
             tests/fixtures/dsv4_attention_step_vectors.h
+      - name: Regenerate canonical native attention runtime fixture
+        run: |
+          python -m tools.dsv4_mini.make_attention_runtime_fixture \
+            --output "$RUNNER_TEMP/dsv4_attention_runtime_vectors.h"
+          cmp "$RUNNER_TEMP/dsv4_attention_runtime_vectors.h" \
+            tests/fixtures/dsv4_attention_runtime_vectors.h
       - name: Verify Make target uses isolated runner
         run: make -n test-dsv4-mini PYTHON=python | grep -F 'python tools/dsv4_mini/run_tests.py'
       - name: Unit and parity gates

@@ -1,6 +1,6 @@
 # Project Status
 
-Date: 2026-08-06
+Date: 2026-08-07
 
 ## Current state
 
@@ -158,6 +158,17 @@ RoPE, CSA sparse selection, compressed-KV gather, sink-aware shared-KV
 attention, inverse RoPE and grouped/dense output projections. It covers
 sliding, CSA and HCA with transactional outputs. Learned input projections,
 owned cache buffers and a full decoder layer remain out of scope.
+
+### P1-F implementation status — native attention runtime
+
+The `p1f/native-attention-runtime` stacked branch closes the learned
+projection and mutable-state gap around P1-E for FP32 batch-one incremental
+attention. It executes q/kv projections and RMS normalization, owns the raw
+sliding cache plus independent attention/index compressor state, and commits
+state only after the complete post-projection step succeeds. Canonical
+fixtures execute the real `MiniAttention.step` across sliding, CSA and HCA,
+including the HCA position-127 boundary. Checkpoint binding, MoE/mHC decoder
+execution, Vulkan and optimized allocation remain out of scope.
 
 ## Non-negotiable source-review rule
 
