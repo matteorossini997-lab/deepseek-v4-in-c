@@ -1,0 +1,88 @@
+name: DeepSeek native decoder layer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'include/dsv4/dsv4_decoder_layer.h'
+      - 'src/cpu/dsv4_decoder_layer.c'
+      - 'include/dsv4/dsv4_attention_runtime.h'
+      - 'src/cpu/dsv4_attention_runtime.c'
+      - 'tests/unit/test_dsv4_decoder_layer.c'
+      - 'tests/fixtures/dsv4_decoder_layer_vectors.h'
+      - 'Makefile'
+      - 'CMakeLists.txt'
+      - '.github/workflows/dsv4-decoder-layer.yml'
+  pull_request:
+    paths:
+      - 'include/dsv4/dsv4_decoder_layer.h'
+      - 'src/cpu/dsv4_decoder_layer.c'
+      - 'include/dsv4/dsv4_attention_runtime.h'
+      - 'src/cpu/dsv4_attention_runtime.c'
+      - 'tests/unit/test_dsv4_decoder_layer.c'
+      - 'tests/fixtures/dsv4_decoder_layer_vectors.h'
+      - 'Makefile'
+      - 'CMakeLists.txt'
+      - '.github/workflows/dsv4-decoder-layer.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  fp32-reference:
+    name: ${{ matrix.compiler }} FP32 reference
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Focused Make gate
+        run: make test-dsv4-decoder-layer CC=${{ matrix.compiler }}
+      - name: GCC analyzers
+        if: matrix.compiler == 'gcc'
+        run: |
+          gcc -O0 -g -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror \
+              -fanalyzer -ffp-contract=off -Iinclude/dsv4 \
+              -c src/cpu/dsv4_decoder_layer.c \
+              -o "$RUNNER_TEMP/dsv4_decoder_layer_analyzer.o"
+          gcc -O0 -g -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror \
+              -fanalyzer -ffp-contract=off -Iinclude/dsv4 \
+              -c src/cpu/dsv4_attention_runtime.c \
+              -o "$RUNNER_TEMP/dsv4_attention_runtime_clone_analyzer.o"
+      - name: ASan and UBSan
+        run: |
+          ${{ matrix.compiler }} -O1 -g -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror \
+             -ffp-contract=off -fsanitize=address,undefined \
+             -fno-omit-frame-pointer -Iinclude/dsv4 -Itests/fixtures \
+             tests/unit/test_dsv4_decoder_layer.c \
+             src/cpu/dsv4_decoder_layer.c \
+             src/cpu/dsv4_attention_runtime.c \
+             src/cpu/dsv4_attention_step.c \
+             src/cpu/dsv4_attention_numeric.c \
+             src/cpu/dsv4_attention_state.c \
+             src/cpu/dsv4_sparse_index.c \
+             src/cpu/dsv4_moe.c src/cpu/dsv4_cpu_ops.c -lm \
+             -fsanitize=address,undefined \
+             -o "$RUNNER_TEMP/test_dsv4_decoder_layer_asan"
+          ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 \
+          UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+            "$RUNNER_TEMP/test_dsv4_decoder_layer_asan"
+      - name: CMake and CTest
+        run: |
+          cmake -S . -B "$RUNNER_TEMP/build" \
+            -DK3_NATIVE_ARCH=OFF \
+            -DCMAKE_C_COMPILER=${{ matrix.compiler }}
+          cmake --build "$RUNNER_TEMP/build" \
+            --target test_dsv4_decoder_layer -j"$(nproc)"
+          ctest --test-dir "$RUNNER_TEMP/build" \
+            -R '^dsv4_decoder_layer$' --output-on-failure
+      - name: Tree hygiene
+        run: git diff --check
