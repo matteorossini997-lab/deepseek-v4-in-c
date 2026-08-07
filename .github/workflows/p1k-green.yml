@@ -1,0 +1,45 @@
+name: P1-K full runtime GREEN
+
+on:
+  push:
+    branches: [p1k/full-runtime-generation]
+    paths: ['.github/workflows/p1k-green.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  focused-green:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install CPU PyTorch
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.10.0
+      - name: Apply deep-clone implementations
+        run: python tools/p1k_green_patch.py
+      - name: Generate combined fixture
+        run: python -m tools.dsv4_mini.make_full_runtime_fixture --output "$RUNNER_TEMP/dsv4_full_runtime_vectors.h"
+      - name: GCC focused parity and generation
+        run: |
+          cc -O2 -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror -ffp-contract=off \
+             -Iinclude/dsv4 -Itests/fixtures -Itests/unit -I"$RUNNER_TEMP" \
+             tests/unit/test_dsv4_full_model.c src/cpu/dsv4_full_model.c \
+             src/cpu/dsv4_model.c src/cpu/dsv4_mtp.c src/cpu/dsv4_decoder_layer.c \
+             src/cpu/dsv4_attention_runtime.c src/cpu/dsv4_attention_step.c \
+             src/cpu/dsv4_attention_numeric.c src/cpu/dsv4_attention_state.c \
+             src/cpu/dsv4_sparse_index.c src/cpu/dsv4_moe.c src/cpu/dsv4_cpu_ops.c -lm \
+             -o "$RUNNER_TEMP/test_dsv4_full"
+          "$RUNNER_TEMP/test_dsv4_full"
+      - name: Public headers compile
+        run: |
+          cat > "$RUNNER_TEMP/header.c" <<'EOF'
+          #include "dsv4_full_model.h"
+          int main(void) { return 0; }
+          EOF
+          cc -std=c99 -Wall -Wextra -Werror -Iinclude/dsv4 "$RUNNER_TEMP/header.c" -c -o "$RUNNER_TEMP/header.o"
