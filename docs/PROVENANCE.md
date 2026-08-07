@@ -191,6 +191,25 @@ RED run `31166922290` reached the expected undefined runtime symbols after
 successful fixture generation; focused GREEN run `31167437819` passed the
 same parity fixture and public-header compile.
 
+## P1-G: native sparse MoE
+
+**Review date:** 2026-08-07
+
+| Source | Exact ref and files reviewed | Decision |
+|---|---|---|
+| target P1-F + mini-oracle | `1106f248ccea9bc3b06cb031e8ca58542e23c8c7`: `tools/dsv4_mini/reference.py` (`HashRouter`, `LearnedRouter`, `Expert`, `SparseMoE`, `DecoderLayer`) and P1-A CPU routing API | KEEP sqrt-softplus/learned routing; REWRITE expert execution and aggregation in portable C99. |
+| official DeepSeek V4 Flash | `60d8d70770c6776ff598c94bb586a859a38244f1`: current `Gate`, `Expert`, `MoE` and block order re-reviewed 2026-08-07; shared-expert SwiGLU-limit fix also reviewed | Preserve explicit checkpoint `tid2eid` routing, correction-bias learned selection, route scaling, routed-plus-shared expert structure and SwiGLU limit; no official source or weights copied. |
+
+Local differences: the C API takes the hash table explicitly instead of baking
+the mini-oracle synthetic token formula into production code. Learned route
+slots use P1-A's deterministic canonical ordering; diagnostics are compared as
+expert/weight pairs. The mini-oracle multiplies routing weights after the down
+projection while official inference may multiply before it; because the down
+projection is linear the graph is mathematically equivalent, and P1-G follows
+the mini-oracle order for FP32 parity. RED run `31168611843` generated the
+fixture and failed exactly on undefined `dsv4_moe_forward_f32`; focused GREEN
+run `31168805315` passed the same hash/learned cases and header compile.
+
 ## Existing baseline provenance
 
 The target was forked from K3-in-C. Its Apache-2.0 `NOTICE` documents vendored
