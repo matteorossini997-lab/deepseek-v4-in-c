@@ -31,46 +31,25 @@ typedef struct DSV4ModelConfig {
 } DSV4ModelConfig;
 
 typedef struct DSV4ModelWeights {
-    /* [vocab_size, hidden_size] */
     const float *embedding_weight;
-
-    /* [num_layers], with each nested pointer caller-owned and immutable. */
     const DSV4DecoderLayerWeights *layer_weights;
-
-    /* HyperHead: fn [hc_mult, hc_mult * hidden_size], base [hc_mult], scale [1]. */
     const float *hc_head_fn;
     const float *hc_head_base;
     const float *hc_head_scale;
-
-    /* Final RMSNorm [hidden_size] and LM head [vocab_size, hidden_size]. */
     const float *output_norm_weight;
     const float *lm_head_weight;
 } DSV4ModelWeights;
 
 typedef struct DSV4Model DSV4Model;
 
-/* Copies layer configs and creates one owned decoder runtime per base layer. */
-DSV4Model *dsv4_model_create(
-    const DSV4ModelConfig *config,
-    DSV4ModelStatus *out_status);
+DSV4Model *dsv4_model_create(const DSV4ModelConfig *config, DSV4ModelStatus *out_status);
+
+/* Deep-clones all owned decoder state and absolute position; weights remain external. */
+DSV4Model *dsv4_model_clone(const DSV4Model *source, DSV4ModelStatus *out_status);
 
 void dsv4_model_destroy(DSV4Model *model);
-
-/* Transactionally recreates all base-layer state at position zero. */
 DSV4ModelStatus dsv4_model_reset(DSV4Model *model);
 
-/*
- * Executes one base-model token at the internally owned absolute position.
- * MTP is deliberately not executed here.
- *
- * On success:
- *   out_streams: [hc_mult, hidden_size], final base-layer streams for MTP reuse;
- *   out_logits:  [vocab_size], final normalized LM-head logits.
- *
- * The full model step is transactional. Every decoder layer runs on a deep
- * clone, and all cloned states plus next_position are committed only after
- * HyperHead, final RMSNorm and every LM-head logit are finite.
- */
 DSV4ModelStatus dsv4_model_step_f32(
     DSV4Model *model,
     const DSV4ModelWeights *weights,
