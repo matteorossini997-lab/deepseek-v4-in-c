@@ -210,6 +210,24 @@ the mini-oracle order for FP32 parity. RED run `31168611843` generated the
 fixture and failed exactly on undefined `dsv4_moe_forward_f32`; focused GREEN
 run `31168805315` passed the same hash/learned cases and header compile.
 
+## P1-H: native decoder layer
+
+**Review date:** 2026-08-07
+
+| Source | Exact ref and files reviewed | Decision |
+|---|---|---|
+| target P1-G + mini-oracle | `7195f1e3ff54e310ee35fb5eacdee446c31a8c78`: `DecoderLayer.step`, `_mix`, `HyperConnection`, P1-A CPU mHC, P1-F attention runtime and P1-G MoE APIs/tests | KEEP verified primitives; REWRITE only layer ownership, weighted norms, HC post-mix glue and transactional orchestration. |
+| official DeepSeek V4 Flash | approved source lineage `60d8d70770c6776ff598c94bb586a859a38244f1`; current `inference/model.py` block order re-reviewed 2026-08-07 (page reports file commit `2b2bebc`) | Preserve HC-pre -> attention norm -> attention -> HC-post -> HC-pre -> FFN norm -> MoE -> HC-post; no official source or weights copied. |
+
+P1-H exposes the already-existing P1-F deep clone as a minimal public API so
+decoder transactions can stage attention state. RED run `31170075295` generated
+the canonical fixture and failed exactly on missing decoder symbols. The first
+GREEN run `31170407922` revealed that an `FLT_MAX` test injection remained
+numerically finite for the chosen activations; the test was corrected, without
+changing production logic, to use a guaranteed learned-MoE missing-bias failure
+after the staged attention step. GREEN run `31170544589` then passed full
+sliding/CSA/HCA parity, rollback retry and public-header compilation.
+
 ## Existing baseline provenance
 
 The target was forked from K3-in-C. Its Apache-2.0 `NOTICE` documents vendored

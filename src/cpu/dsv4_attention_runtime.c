@@ -313,7 +313,7 @@ static DSV4AttentionRuntimeStatus copy_vectors(
     return DSV4_AR_OK;
 }
 
-static DSV4AttentionRuntime *clone_runtime(
+DSV4AttentionRuntime *dsv4_attention_runtime_clone(
     const DSV4AttentionRuntime *source,
     DSV4AttentionRuntimeStatus *out_status) {
     DSV4AttentionRuntime *copy;
@@ -788,7 +788,7 @@ DSV4AttentionRuntimeStatus dsv4_attention_runtime_step_f32(
 
     status = validate_weights(&runtime->config, weights);
     if (status != DSV4_AR_OK) return status;
-    work = clone_runtime(runtime, &status);
+    work = dsv4_attention_runtime_clone(runtime, &status);
     if (work == NULL) return status;
 
     if (!checked_mul_size(work->config.num_heads, work->config.head_dim, &total_width)) {

@@ -13,6 +13,7 @@ on:
       - 'tests/fixtures/dsv4_attention_step_vectors.h'
       - 'tests/fixtures/dsv4_attention_runtime_vectors.h'
       - 'tests/fixtures/dsv4_moe_vectors.h'
+      - 'tests/fixtures/dsv4_decoder_layer_vectors.h'
       - 'requirements-dsv4-mini.txt'
       - 'Makefile'
       - '.github/workflows/dsv4-mini.yml'
@@ -27,6 +28,7 @@ on:
       - 'tests/fixtures/dsv4_attention_step_vectors.h'
       - 'tests/fixtures/dsv4_attention_runtime_vectors.h'
       - 'tests/fixtures/dsv4_moe_vectors.h'
+      - 'tests/fixtures/dsv4_decoder_layer_vectors.h'
       - 'requirements-dsv4-mini.txt'
       - 'Makefile'
       - '.github/workflows/dsv4-mini.yml'
@@ -94,6 +96,12 @@ jobs:
             --output "$RUNNER_TEMP/dsv4_moe_vectors.h"
           cmp "$RUNNER_TEMP/dsv4_moe_vectors.h" \
             tests/fixtures/dsv4_moe_vectors.h
+      - name: Regenerate canonical native decoder-layer fixture
+        run: |
+          python -m tools.dsv4_mini.make_decoder_layer_fixture \
+            --output "$RUNNER_TEMP/dsv4_decoder_layer_vectors.h"
+          cmp "$RUNNER_TEMP/dsv4_decoder_layer_vectors.h" \
+            tests/fixtures/dsv4_decoder_layer_vectors.h
       - name: Verify Make target uses isolated runner
         run: make -n test-dsv4-mini PYTHON=python | grep -F 'python tools/dsv4_mini/run_tests.py'
       - name: Unit and parity gates

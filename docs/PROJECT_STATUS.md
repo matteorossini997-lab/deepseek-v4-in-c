@@ -180,6 +180,17 @@ expert using the canonical clamped SwiGLU order. Output and route diagnostics
 are transactional. Checkpoint FP4 decoding, expert streaming/caching, decoder
 mHC composition and Vulkan remain out of scope.
 
+### P1-H implementation status — native decoder layer
+
+The `p1h/native-decoder-layer` stacked branch composes P1-A Hyper-Connection,
+P1-F native attention and P1-G native MoE into the first complete FP32
+batch-one/token-one decoder layer. It preserves the canonical HC -> norm ->
+attention -> HC -> norm -> MoE -> HC order and deep-clones attention state so
+a late MoE failure cannot advance KV/compressor/indexer state. Canonical
+fixtures cover sliding/hash, CSA/learned and HCA/learned including position
+127/128. Embedding/LM head, MTP, checkpoint binding, FP8/FP4 and Vulkan remain
+out of scope.
+
 ## Non-negotiable source-review rule
 
 Before developing from or integrating any external or sibling repository:

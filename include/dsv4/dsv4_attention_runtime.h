@@ -80,6 +80,12 @@ DSV4AttentionRuntime *dsv4_attention_runtime_create(
     const DSV4AttentionRuntimeConfig *config,
     DSV4AttentionRuntimeStatus *out_status);
 
+/* Deep-copies every mutable cache/compressor/indexer field. The returned clone
+ * is independently owned and must be released with dsv4_attention_runtime_destroy. */
+DSV4AttentionRuntime *dsv4_attention_runtime_clone(
+    const DSV4AttentionRuntime *runtime,
+    DSV4AttentionRuntimeStatus *out_status);
+
 void dsv4_attention_runtime_destroy(DSV4AttentionRuntime *runtime);
 
 /* Resets position and every owned cache. On allocation failure the old state is

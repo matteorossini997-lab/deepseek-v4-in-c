@@ -49,7 +49,7 @@ CLI_SRC    := src/cli/k3_run.c
 CLI_BIN    := $(BIN)/k3
 
 # Tests that need no checkpoint. These run in CI on every push.
-UNIT_TESTS := test_ops test_cache test_st test_cfg test_tok test_dsv4_config test_dsv4_inventory test_dsv4_cpu_ops test_dsv4_attention_state test_dsv4_attention_numeric test_dsv4_sparse_index test_dsv4_attention_step test_dsv4_attention_runtime test_dsv4_moe scale_test k3_model
+UNIT_TESTS := test_ops test_cache test_st test_cfg test_tok test_dsv4_config test_dsv4_inventory test_dsv4_cpu_ops test_dsv4_attention_state test_dsv4_attention_numeric test_dsv4_sparse_index test_dsv4_attention_step test_dsv4_attention_runtime test_dsv4_moe test_dsv4_decoder_layer scale_test k3_model
 # Tests that need real shards. Built and run by `make test-all` with SHARD_DIR set;
 # see the weights-test target below.
 WEIGHT_TESTS := test_expert test_real_layer
@@ -70,7 +70,7 @@ TOK_FILES  ?= $(HOME)/k3model
         test-dsv4-cpu-ops test-dsv4-attention-state \
         test-dsv4-attention-numeric test-dsv4-sparse-index \
         test-dsv4-attention-step test-dsv4-attention-runtime \
-        test-dsv4-moe
+        test-dsv4-moe test-dsv4-decoder-layer
 
 all: $(CLI_BIN)
 
@@ -130,6 +130,9 @@ $(BIN)/test_dsv4_attention_runtime: tests/unit/test_dsv4_attention_runtime.c src
 
 $(BIN)/test_dsv4_moe: tests/unit/test_dsv4_moe.c src/cpu/dsv4_moe.c src/cpu/dsv4_cpu_ops.c include/dsv4/dsv4_moe.h include/dsv4/dsv4_cpu_ops.h tests/fixtures/dsv4_moe_vectors.h | $(BIN)
 	$(CC) -O2 -std=c99 $(WARN) -Werror -ffp-contract=off -Iinclude/dsv4 -Itests/fixtures tests/unit/test_dsv4_moe.c src/cpu/dsv4_moe.c src/cpu/dsv4_cpu_ops.c -o $@ -lm
+
+$(BIN)/test_dsv4_decoder_layer: tests/unit/test_dsv4_decoder_layer.c src/cpu/dsv4_decoder_layer.c src/cpu/dsv4_attention_runtime.c src/cpu/dsv4_attention_step.c src/cpu/dsv4_attention_numeric.c src/cpu/dsv4_attention_state.c src/cpu/dsv4_sparse_index.c src/cpu/dsv4_moe.c src/cpu/dsv4_cpu_ops.c include/dsv4/dsv4_decoder_layer.h include/dsv4/dsv4_attention_runtime.h include/dsv4/dsv4_attention_step.h include/dsv4/dsv4_attention_numeric.h include/dsv4/dsv4_attention_state.h include/dsv4/dsv4_sparse_index.h include/dsv4/dsv4_moe.h include/dsv4/dsv4_cpu_ops.h tests/fixtures/dsv4_decoder_layer_vectors.h | $(BIN)
+	$(CC) -O2 -std=c99 $(WARN) -Werror -ffp-contract=off -Iinclude/dsv4 -Itests/fixtures tests/unit/test_dsv4_decoder_layer.c src/cpu/dsv4_decoder_layer.c src/cpu/dsv4_attention_runtime.c src/cpu/dsv4_attention_step.c src/cpu/dsv4_attention_numeric.c src/cpu/dsv4_attention_state.c src/cpu/dsv4_sparse_index.c src/cpu/dsv4_moe.c src/cpu/dsv4_cpu_ops.c -o $@ -lm
 
 # The tokenizer and config reader are portable C99 with no OpenMP and no platform calls,
 # so they build and are verifiable on any machine, including one with no checkpoint.
@@ -196,6 +199,9 @@ test-dsv4-attention-runtime: $(BIN)/test_dsv4_attention_runtime
 test-dsv4-moe: $(BIN)/test_dsv4_moe
 	$(BIN)/test_dsv4_moe
 
+test-dsv4-decoder-layer: $(BIN)/test_dsv4_decoder_layer
+	$(BIN)/test_dsv4_decoder_layer
+
 ## test: everything that needs no model weights
 test: $(TEST_BINS) $(BIN)/dsv4-inspect $(BIN)/dsv4-inventory
 	@echo "== op kernels ==";        ./$(BIN)/test_ops $(FIXTURES)/ops
@@ -212,6 +218,7 @@ test: $(TEST_BINS) $(BIN)/dsv4-inspect $(BIN)/dsv4-inventory
 	@echo "== DeepSeek attention step =="; $(MAKE) --no-print-directory test-dsv4-attention-step
 	@echo "== DeepSeek attention runtime =="; $(MAKE) --no-print-directory test-dsv4-attention-runtime
 	@echo "== DeepSeek MoE =="; $(MAKE) --no-print-directory test-dsv4-moe
+	@echo "== DeepSeek decoder layer =="; $(MAKE) --no-print-directory test-dsv4-decoder-layer
 	@echo "== tokenizer ==";         ./$(BIN)/test_tok $(TOK_FILES) roundtrip src/core/k3_ops.c \
 	    || echo "  (skipped: no tokenizer files at $(TOK_FILES))"
 	@echo "== real dimensions ==";   ./$(BIN)/scale_test
