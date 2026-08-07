@@ -12,8 +12,12 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 def main() -> int:
     model_path = Path('src/cpu/dsv4_model.c')
     model = model_path.read_text(encoding='utf-8')
-    model_anchor = '''void dsv4_model_destroy(DSV4Model *model)\n'''
-    model_clone = r'''DSV4Model *dsv4_model_clone(const DSV4Model *source,
+    model_anchor = '''    *out_layers = layers;\n    return DSV4_MODEL_OK;\n}\n\nstatic DSV4ModelStatus unweighted_rms'''
+    model_clone = r'''    *out_layers = layers;
+    return DSV4_MODEL_OK;
+}
+
+DSV4Model *dsv4_model_clone(const DSV4Model *source,
                              DSV4ModelStatus *out_status)
 {
     DSV4Model *copy = NULL;
@@ -58,8 +62,8 @@ done:
     return copy;
 }
 
-'''
-    model = replace_once(model, model_anchor, model_clone + model_anchor,
+static DSV4ModelStatus unweighted_rms'''
+    model = replace_once(model, model_anchor, model_clone,
                          'base model clone insertion')
     model_path.write_text(model, encoding='utf-8')
 
