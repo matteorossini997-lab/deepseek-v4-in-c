@@ -61,6 +61,11 @@ DSV4DecoderLayer *dsv4_decoder_layer_create(
     const DSV4DecoderLayerConfig *config,
     DSV4DecoderLayerStatus *out_status);
 
+/* Deep-copies the owned attention state and immutable config. */
+DSV4DecoderLayer *dsv4_decoder_layer_clone(
+    const DSV4DecoderLayer *layer,
+    DSV4DecoderLayerStatus *out_status);
+
 void dsv4_decoder_layer_destroy(DSV4DecoderLayer *layer);
 
 DSV4DecoderLayerStatus dsv4_decoder_layer_reset(DSV4DecoderLayer *layer);
