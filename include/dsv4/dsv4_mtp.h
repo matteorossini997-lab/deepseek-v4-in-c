@@ -30,23 +30,17 @@ typedef struct DSV4MTPConfig {
 } DSV4MTPConfig;
 
 typedef struct DSV4MTPWeights {
-    /* Shared with the base model. */
-    const float *embedding_weight; /* [vocab_size, hidden_size] */
-    const float *lm_head_weight;   /* [vocab_size, hidden_size] */
-
-    /* MTP-owned pre-block projections. */
-    const float *embedding_norm_weight; /* [hidden_size] */
-    const float *hidden_norm_weight;    /* [hidden_size] */
-    const float *embedding_proj_weight; /* [hidden_size, hidden_size] */
-    const float *hidden_proj_weight;    /* [hidden_size, hidden_size] */
-
+    const float *embedding_weight;
+    const float *lm_head_weight;
+    const float *embedding_norm_weight;
+    const float *hidden_norm_weight;
+    const float *embedding_proj_weight;
+    const float *hidden_proj_weight;
     DSV4DecoderLayerWeights decoder;
-
-    /* MTP HyperHead and final norm. */
-    const float *hc_head_fn;    /* [hc_mult, hc_mult * hidden_size] */
-    const float *hc_head_base;  /* [hc_mult] */
-    const float *hc_head_scale; /* [1] */
-    const float *output_norm_weight; /* [hidden_size] */
+    const float *hc_head_fn;
+    const float *hc_head_base;
+    const float *hc_head_scale;
+    const float *output_norm_weight;
 } DSV4MTPWeights;
 
 typedef struct DSV4MTPTrace {
@@ -56,21 +50,13 @@ typedef struct DSV4MTPTrace {
 typedef struct DSV4MTP DSV4MTP;
 
 DSV4MTP *dsv4_mtp_create(const DSV4MTPConfig *config, DSV4MTPStatus *out_status);
+
+/* Deep-clones the owned extra-decoder state and absolute position. */
+DSV4MTP *dsv4_mtp_clone(const DSV4MTP *source, DSV4MTPStatus *out_status);
+
 void dsv4_mtp_destroy(DSV4MTP *mtp);
 DSV4MTPStatus dsv4_mtp_reset(DSV4MTP *mtp);
 
-/*
- * Executes one incremental MTP token using final base-model HC streams.
- * The runtime owns only the extra decoder state and absolute position.
- *
- * On success:
- *   out_streams: [hc_mult, hidden_size] post-MTP decoder streams;
- *   out_logits:  [vocab_size] shared LM-head logits;
- *   route arrays: decoder learned-router expert/weight pairs.
- *
- * Publication is transactional: any failure leaves runtime position/state and
- * all caller outputs unchanged, so the same token can be retried.
- */
 DSV4MTPStatus dsv4_mtp_step_f32(
     DSV4MTP *mtp,
     const DSV4MTPWeights *weights,
