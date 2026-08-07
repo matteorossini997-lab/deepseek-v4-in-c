@@ -1,0 +1,85 @@
+name: P1-K full runtime bootstrap
+
+on:
+  push:
+    branches: [p1k/full-runtime-generation]
+    paths: ['.github/workflows/p1k-bootstrap.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: p1k-bootstrap-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  integrate-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install CPU reference dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.10.0
+          python -m pip install 'pytest>=8,<10'
+      - name: Apply deep-clone implementations
+        run: python tools/p1k_green_patch.py
+      - name: Integrate Make, CMake and project records
+        run: python tools/p1k_integrate.py
+      - name: Regenerate full-runtime fixture twice
+        run: |
+          python -m tools.dsv4_mini.make_full_runtime_fixture --output "$RUNNER_TEMP/dsv4_full_runtime_vectors.h"
+          cp "$RUNNER_TEMP/dsv4_full_runtime_vectors.h" tests/fixtures/dsv4_full_runtime_vectors.h
+          python -m tools.dsv4_mini.make_full_runtime_fixture --output "$RUNNER_TEMP/dsv4_full_runtime_vectors.second.h"
+          cmp "$RUNNER_TEMP/dsv4_full_runtime_vectors.second.h" tests/fixtures/dsv4_full_runtime_vectors.h
+      - name: Existing canonical mini-oracle gates
+        run: python tools/dsv4_mini/run_tests.py
+      - name: Focused GCC Make gate
+        run: make test-dsv4-full-model
+      - name: Focused Clang Make gate
+        run: make clean && make test-dsv4-full-model CC=clang
+      - name: GCC analyzers
+        run: |
+          gcc -O0 -g -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror -fanalyzer -ffp-contract=off -Iinclude/dsv4 -c src/cpu/dsv4_full_model.c -o "$RUNNER_TEMP/full.o"
+          gcc -O0 -g -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror -fanalyzer -ffp-contract=off -Iinclude/dsv4 -c src/cpu/dsv4_model.c -o "$RUNNER_TEMP/model.o"
+          gcc -O0 -g -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror -fanalyzer -ffp-contract=off -Iinclude/dsv4 -c src/cpu/dsv4_mtp.c -o "$RUNNER_TEMP/mtp.o"
+      - name: ASan and UBSan
+        run: |
+          gcc -O1 -g -std=c99 -Wall -Wextra -Wshadow -Wvla -Werror -ffp-contract=off \
+              -fsanitize=address,undefined -fno-omit-frame-pointer \
+              -Iinclude/dsv4 -Itests/fixtures -Itests/unit \
+              tests/unit/test_dsv4_full_model.c src/cpu/dsv4_full_model.c \
+              src/cpu/dsv4_model.c src/cpu/dsv4_mtp.c src/cpu/dsv4_decoder_layer.c \
+              src/cpu/dsv4_attention_runtime.c src/cpu/dsv4_attention_step.c \
+              src/cpu/dsv4_attention_numeric.c src/cpu/dsv4_attention_state.c \
+              src/cpu/dsv4_sparse_index.c src/cpu/dsv4_moe.c src/cpu/dsv4_cpu_ops.c -lm \
+              -fsanitize=address,undefined -o "$RUNNER_TEMP/test_full_san"
+          ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 "$RUNNER_TEMP/test_full_san"
+      - name: CMake and CTest gate
+        run: |
+          cmake -S . -B "$RUNNER_TEMP/build" -DK3_NATIVE_ARCH=OFF
+          cmake --build "$RUNNER_TEMP/build" --target test_dsv4_full_model -j"$(nproc)"
+          ctest --test-dir "$RUNNER_TEMP/build" -R '^dsv4_full_model$' --output-on-failure
+      - name: Tree checks
+        run: |
+          python -m compileall -q tools/dsv4_mini/make_full_runtime_fixture.py tools/p1k_green_patch.py tools/p1k_integrate.py
+          git diff --check
+          grep -F 'test-dsv4-full-model' Makefile
+          grep -F 'add_library(dsv4_full_model' CMakeLists.txt
+          grep -F 'DSV4Model *dsv4_model_clone' src/cpu/dsv4_model.c
+          grep -F 'DSV4MTP *dsv4_mtp_clone' src/cpu/dsv4_mtp.c
+      - name: Publish integrated implementation
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Makefile CMakeLists.txt docs/PROJECT_STATUS.md docs/PROVENANCE.md \
+            src/cpu/dsv4_model.c src/cpu/dsv4_mtp.c tests/fixtures/dsv4_full_runtime_vectors.h
+          git commit -m 'build: integrate DeepSeek full runtime gates'
+          git push origin HEAD:p1k/full-runtime-generation
